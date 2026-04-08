@@ -25,7 +25,8 @@ interface GameViewProps {
 function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId, userId, connectionStatus }: GameViewProps) {
     const router = useRouter();
     console.log('GameView Roles:', game.roles);
-    const maxAIThinkTimeMs = 5000;
+    const maxAIThinkTimeMs = 30000;
+    const aiRequestSeqRef = useRef(0);
 
     // Force update helper
     const [tick, setTick] = useState(0);
@@ -44,18 +45,31 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
     const [highlight, setHighlight] = useState(game.highlight_weapon);
     const [pendingSacrifice, setPendingSacrifice] = useState<[number, number] | null>(null);
     const [showGameOverModal, setShowGameOverModal] = useState(false);
+    const [isAIThinking, setIsAIThinking] = useState(false);
 
     // AI Loop
     useEffect(() => {
         let cancelled = false;
+        setIsAIThinking(false);
         if (!isGameOver && thisIsAI(turnRole)) {
             const timer = setTimeout(() => {
+                const requestId = ++aiRequestSeqRef.current;
                 setPendingSacrifice(null);
+                setIsAIThinking(true);
                 computeAIMoveInBackground(game, turnRole, maxAIThinkTimeMs)
                     .then(result => {
-                        if (cancelled || game.game_over || game.turn !== currentTurn || game.roles[currentTurn] !== turnRole) {
+                        if (
+                            cancelled ||
+                            requestId !== aiRequestSeqRef.current ||
+                            game.game_over ||
+                            game.turn !== currentTurn ||
+                            game.roles[currentTurn] !== turnRole
+                        ) {
+                            setIsAIThinking(false);
                             return;
                         }
+
+                        console.log(`[AI] background thinking finished turn=${currentTurn} role=${turnRole} finishedBy=${result.finishedBy} hasMove=${result.move ? 'yes' : 'no'}`);
 
                         if (turnRole === 'warrior_ai') {
                             console.log(`[WarriorAI] turn=${currentTurn} finishedBy=${result.finishedBy}`);
@@ -74,14 +88,33 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                         } else {
                             game.nextTurn();
                         }
+                        setIsAIThinking(false);
                         forceUpdate();
                     })
                     .catch(error => {
                         console.error('AI background execution failed', error);
+                        if (
+                            cancelled ||
+                            requestId !== aiRequestSeqRef.current ||
+                            game.game_over ||
+                            game.turn !== currentTurn ||
+                            game.roles[currentTurn] !== turnRole
+                        ) {
+                            setIsAIThinking(false);
+                            return;
+                        }
+
+                        setIsAIThinking(false);
+                        if (!cancelled) {
+                            game.nextTurn();
+                            forceUpdate();
+                        }
                     });
             }, 500);
             return () => {
                 cancelled = true;
+                aiRequestSeqRef.current += 1;
+                setIsAIThinking(false);
                 clearTimeout(timer);
             };
         }
@@ -270,6 +303,9 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
             : t('charging', 'en', { n: power, req });
 
         statusText = `${t('turn', 'en', { name: pName })} (${game.roles[currentTurn]})\n${msg}`;
+        if (isAIThinking && thisIsAI(turnRole)) {
+            statusText += `\n${t('ai_thinking', 'en')}`;
+        }
         if (connectionStatus) {
             statusText += `\n[${connectionStatus}]`;
         }
@@ -299,6 +335,12 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
             </View>
 
             <View style={styles.gridContainer} onLayout={onLayout}>
+                {isAIThinking && thisIsAI(turnRole) && (
+                    <View style={styles.aiThinkingOverlay}>
+                        <ActivityIndicator size="large" color="#ffffff" />
+                        <Text style={styles.aiThinkingText}>{t('ai_thinking', 'en')}</Text>
+                    </View>
+                )}
                 {cellSize > 0 && (
                     <View style={{ width: cellSize * game.width, height: cellSize * game.height }}>
                         <FlatList
@@ -450,19 +492,6 @@ export default function GameScreen() {
                     );
                     battlelogWriterRef.current = writer;
 
-                    // Join as ALL human players found in config
-                    let joined = false;
-                    for (let pid = 1; pid <= 4; pid++) {
-                        if (roles[pid as PlayerId] === 'human') {
-                            writer.join('human', userId);
-                            joined = true;
-                        }
-                    }
-                    // Fallback to P1 if no humans (e.g. spectator/AI watch)
-                    if (!joined) {
-                        writer.join('human', userId);
-                    }
-
                     setIsInitialized(true);
                 }
 
@@ -479,18 +508,6 @@ export default function GameScreen() {
                         // Raw text log
                         const lines = (params.restore_state as string).split('\n').filter(l => l.trim().length > 0);
                         gameRef.current.replayLog(lines);
-                    }
-                } else if (mode !== 'multi') {
-                    // Initial setup if not restoring and NOT multi (multi handles it via JOIN command)
-                    const writer = battlelogWriterRef.current as any;
-                    if (writer && writer.join && writer.setWeaponReq) {
-                        writer.setWeaponReq(weaponReq);
-                        for (const pidStr in roles) {
-                            const pid = parseInt(pidStr) as PlayerId;
-                            if (roles[pid] !== 'none') {
-                                writer.join(roles[pid], userId);
-                            }
-                        }
                     }
                 }
 
@@ -544,6 +561,8 @@ const styles = StyleSheet.create({
 
     gridContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     cell: { borderWidth: 1, borderColor: '#333', alignItems: 'center', justifyContent: 'center' },
+    aiThinkingOverlay: { position: 'absolute', top: 16, zIndex: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0, 0, 0, 0.65)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
+    aiThinkingText: { color: '#fff', marginTop: 8, fontSize: 14, fontWeight: '600' },
 
     bottomBar: { flexDirection: 'row', height: 80 },
     bottomBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#333', margin: 5, borderRadius: 8 },

@@ -19,12 +19,12 @@ export class WarriorAIPlayer implements AIPlayer {
 
     getMove(game: MarsMinersGame, options?: AIThinkOptions): AIThinkResult {
         const player = game.turn;
-        const moves = this.generateOrderedMoves(game, player);
         this.searchDeadline = Date.now() + (options?.maxThinkTimeMs ?? 5000);
         this.timedOut = false;
+        const moves = this.generateOrderedMoves(game, player);
 
         if (moves.length === 0) {
-            return { move: null, finishedBy: 'completed' };
+            return { move: null, finishedBy: this.timedOut ? 'timeout' : 'completed' };
         }
 
         let bestMove = moves[0].move;
@@ -106,6 +106,7 @@ export class WarriorAIPlayer implements AIPlayer {
 
         let total = 0;
         for (const pid of PLAYER_IDS) {
+            if (this.isOutOfTime()) break;
             if (game.roles[pid] === 'none') continue;
 
             const sign = pid === rootPlayer ? 1 : -0.65;
@@ -125,6 +126,7 @@ export class WarriorAIPlayer implements AIPlayer {
         let winners: PlayerId[] = [];
 
         for (const pid of PLAYER_IDS) {
+            if (this.isOutOfTime()) break;
             if (game.roles[pid] === 'none') continue;
             const score = scores[pid] || 0;
             if (score > bestScore) {
@@ -143,6 +145,9 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private evaluatePlayerState(game: MarsMinersGame, player: PlayerId): number {
+        if (this.isOutOfTime()) {
+            return 0;
+        }
         if (game.player_lost[player]) {
             return -50000;
         }
@@ -187,6 +192,9 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private generateOrderedMoves(game: MarsMinersGame, player: PlayerId): ScoredMove[] {
+        if (this.isOutOfTime()) {
+            return [];
+        }
         const moves = this.generateMoves(game, player);
         return moves
             .map(move => ({ move, score: this.scoreMove(game, player, move) }))
@@ -194,7 +202,7 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private generateMoves(game: MarsMinersGame, player: PlayerId): AIMove[] {
-        if (game.player_lost[player] || game.roles[player] === 'none') {
+        if (this.isOutOfTime() || game.player_lost[player] || game.roles[player] === 'none') {
             return [];
         }
 
@@ -205,7 +213,9 @@ export class WarriorAIPlayer implements AIPlayer {
         const linePower = game.getLinePower(player);
 
         for (let r = 0; r < game.height; r++) {
+            if (this.isOutOfTime()) break;
             for (let c = 0; c < game.width; c++) {
+                if (this.isOutOfTime()) break;
                 if (!game.canBuild(r, c, player)) continue;
 
                 const openNeighbors = this.countOpenNeighbors(game, r, c);
@@ -250,7 +260,9 @@ export class WarriorAIPlayer implements AIPlayer {
             const sacrificeLimit = Math.min(3, weaponCells.length);
 
             for (const [tr, tc] of enemyTargets.slice(0, targetLimit)) {
+                if (this.isOutOfTime()) break;
                 for (const [sr, sc] of weaponCells.slice(0, sacrificeLimit)) {
+                    if (this.isOutOfTime()) break;
                     moves.push({ type: 'L', tr, tc, sr, sc });
                 }
             }
@@ -260,6 +272,9 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private scoreMove(game: MarsMinersGame, player: PlayerId, move: AIMove): number {
+        if (this.isOutOfTime()) {
+            return Number.NEGATIVE_INFINITY;
+        }
         if (move.type === 'L') {
             return this.scoreLaserMove(game, player, move);
         }
@@ -308,7 +323,9 @@ export class WarriorAIPlayer implements AIPlayer {
     private countBuildMoves(game: MarsMinersGame, player: PlayerId): number {
         let total = 0;
         for (let r = 0; r < game.height; r++) {
+            if (this.isOutOfTime()) break;
             for (let c = 0; c < game.width; c++) {
+                if (this.isOutOfTime()) break;
                 if (game.canBuild(r, c, player)) {
                     total++;
                 }
@@ -318,6 +335,9 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private countOpenNeighbors(game: MarsMinersGame, r: number, c: number): number {
+        if (this.isOutOfTime()) {
+            return 0;
+        }
         let total = 0;
         const adj = [[-1, 0], [1, 0], [0, -1], [0, 1]];
         for (const [dr, dc] of adj) {
@@ -331,6 +351,9 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private countAdjacentOwnStations(game: MarsMinersGame, player: PlayerId, r: number, c: number): number {
+        if (this.isOutOfTime()) {
+            return 0;
+        }
         let total = 0;
         const adj = [[-1, 0], [1, 0], [0, -1], [0, 1]];
         for (const [dr, dc] of adj) {
@@ -344,6 +367,9 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private countAdjacentEnemyStations(game: MarsMinersGame, player: PlayerId, r: number, c: number): number {
+        if (this.isOutOfTime()) {
+            return 0;
+        }
         let total = 0;
         const adj = [[-1, 0], [1, 0], [0, -1], [0, 1]];
         for (const [dr, dc] of adj) {
@@ -359,10 +385,15 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private countCells(game: MarsMinersGame, player: PlayerId, type: 'st' | 'mi'): number {
+        if (this.isOutOfTime()) {
+            return 0;
+        }
         const symbol = game.players[player][type];
         let total = 0;
         for (const row of game.grid) {
+            if (this.isOutOfTime()) break;
             for (const cell of row) {
+                if (this.isOutOfTime()) break;
                 if (cell === symbol) total++;
             }
         }
@@ -370,6 +401,9 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private getWeaponCellsForPlayer(game: MarsMinersGame, player: PlayerId): [number, number][] {
+        if (this.isOutOfTime()) {
+            return [];
+        }
         return Array.from(game.getWeaponCells())
             .map(s => s.split(',').map(Number) as [number, number])
             .filter(([r, c]) => game.grid[r][c] === game.players[player].st);
@@ -379,7 +413,9 @@ export class WarriorAIPlayer implements AIPlayer {
         const targets: Array<{ pos: [number, number]; danger: number }> = [];
 
         for (let r = 0; r < game.height; r++) {
+            if (this.isOutOfTime()) break;
             for (let c = 0; c < game.width; c++) {
+                if (this.isOutOfTime()) break;
                 const owner = this.getOwnerOfStation(game, game.grid[r][c]);
                 if (owner === null || owner === player) continue;
                 const danger = this.countCells(game, owner, 'mi') * 3 + game.getLinePower(owner) * 8 + this.computeCenterBias(game, r, c);
@@ -394,7 +430,9 @@ export class WarriorAIPlayer implements AIPlayer {
     private countEnemyStations(game: MarsMinersGame, player: PlayerId): number {
         let total = 0;
         for (let r = 0; r < game.height; r++) {
+            if (this.isOutOfTime()) break;
             for (let c = 0; c < game.width; c++) {
+                if (this.isOutOfTime()) break;
                 const owner = this.getOwnerOfStation(game, game.grid[r][c]);
                 if (owner !== null && owner !== player) {
                     total++;
@@ -405,7 +443,11 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private getOwnerOfStation(game: MarsMinersGame, cell: string): PlayerId | null {
+        if (this.isOutOfTime()) {
+            return null;
+        }
         for (const pid of PLAYER_IDS) {
+            if (this.isOutOfTime()) break;
             if (cell === game.players[pid].st) {
                 return pid;
             }
@@ -416,7 +458,9 @@ export class WarriorAIPlayer implements AIPlayer {
     private computeCenterControl(game: MarsMinersGame, player: PlayerId): number {
         let control = 0;
         for (let r = 0; r < game.height; r++) {
+            if (this.isOutOfTime()) break;
             for (let c = 0; c < game.width; c++) {
+                if (this.isOutOfTime()) break;
                 const cell = game.grid[r][c];
                 if (cell !== game.players[player].st && cell !== game.players[player].mi) continue;
                 control += this.computeCenterBias(game, r, c);
@@ -428,7 +472,9 @@ export class WarriorAIPlayer implements AIPlayer {
     private computeFrontierQuality(game: MarsMinersGame, player: PlayerId): number {
         let total = 0;
         for (let r = 0; r < game.height; r++) {
+            if (this.isOutOfTime()) break;
             for (let c = 0; c < game.width; c++) {
+                if (this.isOutOfTime()) break;
                 if (game.grid[r][c] !== game.players[player].st) continue;
                 total += this.countOpenNeighbors(game, r, c);
             }
@@ -443,14 +489,21 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private measureLinePotential(game: MarsMinersGame, player: PlayerId, r: number, c: number): number {
+        if (this.isOutOfTime()) {
+            return 0;
+        }
         const horizontal = 1 + this.countDirection(game, player, r, c, 0, -1) + this.countDirection(game, player, r, c, 0, 1);
         const vertical = 1 + this.countDirection(game, player, r, c, -1, 0) + this.countDirection(game, player, r, c, 1, 0);
         return Math.max(horizontal, vertical);
     }
 
     private measureBlockingValue(game: MarsMinersGame, player: PlayerId, r: number, c: number): number {
+        if (this.isOutOfTime()) {
+            return 0;
+        }
         let best = 0;
         for (const pid of PLAYER_IDS) {
+            if (this.isOutOfTime()) break;
             if (pid === player || game.roles[pid] === 'none' || game.player_lost[pid]) continue;
             const horizontal = 1 + this.countDirection(game, pid, r, c, 0, -1) + this.countDirection(game, pid, r, c, 0, 1);
             const vertical = 1 + this.countDirection(game, pid, r, c, -1, 0) + this.countDirection(game, pid, r, c, 1, 0);
@@ -460,6 +513,9 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private scoreLaserMove(game: MarsMinersGame, player: PlayerId, move: Extract<AIMove, { type: 'L' }>): number {
+        if (this.isOutOfTime()) {
+            return Number.NEGATIVE_INFINITY;
+        }
         const targetCell = game.grid[move.tr][move.tc];
         const targetPlayer = this.getOwnerOfStation(game, targetCell);
         let score = 760;
@@ -491,6 +547,7 @@ export class WarriorAIPlayer implements AIPlayer {
     private countImmediateEnemyWeaponThreats(game: MarsMinersGame, player: PlayerId): number {
         let total = 0;
         for (const pid of PLAYER_IDS) {
+            if (this.isOutOfTime()) break;
             if (pid === player || game.roles[pid] === 'none' || game.player_lost[pid]) continue;
             if (game.getLinePower(pid) >= game.weapon_req - 1) {
                 total++;
@@ -500,6 +557,9 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private countReadyShotTargets(game: MarsMinersGame, player: PlayerId): number {
+        if (this.isOutOfTime()) {
+            return 0;
+        }
         if (game.getLinePower(player) < game.weapon_req) return 0;
         return this.getEnemyStations(game, player).length;
     }
@@ -509,20 +569,29 @@ export class WarriorAIPlayer implements AIPlayer {
     }
 
     private isWeaponCell(game: MarsMinersGame, player: PlayerId, r: number, c: number): boolean {
+        if (this.isOutOfTime()) {
+            return false;
+        }
         return this.getWeaponCellsForPlayer(game, player).some(([wr, wc]) => wr === r && wc === c);
     }
 
     private isCriticalOwnBridge(game: MarsMinersGame, player: PlayerId, r: number, c: number): boolean {
+        if (this.isOutOfTime()) {
+            return false;
+        }
         const horizontal = this.countDirection(game, player, r, c, 0, -1) + this.countDirection(game, player, r, c, 0, 1);
         const vertical = this.countDirection(game, player, r, c, -1, 0) + this.countDirection(game, player, r, c, 1, 0);
         return horizontal >= 2 || vertical >= 2;
     }
 
     private countDirection(game: MarsMinersGame, player: PlayerId, r: number, c: number, dr: number, dc: number): number {
+        if (this.isOutOfTime()) {
+            return 0;
+        }
         let total = 0;
         let nr = r + dr;
         let nc = c + dc;
-        while (nr >= 0 && nr < game.height && nc >= 0 && nc < game.width && game.grid[nr][nc] === game.players[player].st) {
+        while (!this.isOutOfTime() && nr >= 0 && nr < game.height && nc >= 0 && nc < game.width && game.grid[nr][nc] === game.players[player].st) {
             total++;
             nr += dr;
             nc += dc;
