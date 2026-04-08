@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Clipboard, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MarsMinersGame, PlayerId } from '../src/logic/MarsMinersGame';
+import { createAIPlayer } from '../src/logic/ai/createAIPlayer';
 import { PlayfieldDelegate } from '../src/logic/PlayfieldDelegate';
 import { BattlelogWriter } from '../src/logic/battlelog/BattlelogWriter';
 import { SingleplayerBattlelogWriter } from '../src/logic/battlelog/SingleplayerBattlelogWriter';
@@ -24,6 +25,7 @@ interface GameViewProps {
 function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId, userId, connectionStatus }: GameViewProps) {
     const router = useRouter();
     console.log('GameView Roles:', game.roles);
+    const aiPlayerRef = useRef(createAIPlayer());
 
     // Force update helper
     const [tick, setTick] = useState(0);
@@ -48,7 +50,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
         if (!isGameOver && turnRole === 'ai') {
             const timer = setTimeout(() => {
                 setPendingSacrifice(null);
-                const move = game.aiMove();
+                const move = aiPlayerRef.current.getMove(game);
                 const writer = battlelogWriter as any;
                 if (move) {
                     if (move.type === 'S') {
