@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Clipboard, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MarsMinersGame, PlayerId, PlayerRole } from '../src/logic/MarsMinersGame';
-import { createAIPlayer } from '../src/logic/ai/createAIPlayer';
+import { computeAIMoveInBackground } from '../src/logic/ai/AIBackgroundService';
 import { PlayfieldDelegate } from '../src/logic/PlayfieldDelegate';
 import { BattlelogWriter } from '../src/logic/battlelog/BattlelogWriter';
 import { SingleplayerBattlelogWriter } from '../src/logic/battlelog/SingleplayerBattlelogWriter';
@@ -25,12 +25,7 @@ interface GameViewProps {
 function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId, userId, connectionStatus }: GameViewProps) {
     const router = useRouter();
     console.log('GameView Roles:', game.roles);
-    const aiPlayersRef = useRef<Record<PlayerId, ReturnType<typeof createAIPlayer>>>({
-        1: createAIPlayer(game.roles[1] === 'warrior_ai' ? 'warrior' : 'simple'),
-        2: createAIPlayer(game.roles[2] === 'warrior_ai' ? 'warrior' : 'simple'),
-        3: createAIPlayer(game.roles[3] === 'warrior_ai' ? 'warrior' : 'simple'),
-        4: createAIPlayer(game.roles[4] === 'warrior_ai' ? 'warrior' : 'simple'),
-    });
+    const maxAIThinkTimeMs = 5000;
 
     // Force update helper
     const [tick, setTick] = useState(0);
@@ -52,25 +47,43 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
 
     // AI Loop
     useEffect(() => {
+        let cancelled = false;
         if (!isGameOver && thisIsAI(turnRole)) {
             const timer = setTimeout(() => {
                 setPendingSacrifice(null);
-                const move = aiPlayersRef.current[currentTurn].getMove(game);
-                const writer = battlelogWriter as any;
-                if (move) {
-                    if (move.type === 'S') {
-                        writer.buildStation(move.r, move.c);
-                    } else if (move.type === 'M') {
-                        writer.buildMine(move.r, move.c);
-                    } else if (move.type === 'L') {
-                        writer.shootLaser(move.tr, move.tc, move.sr, move.sc);
-                    }
-                } else {
-                    game.nextTurn();
-                }
-                forceUpdate();
+                computeAIMoveInBackground(game, turnRole, maxAIThinkTimeMs)
+                    .then(result => {
+                        if (cancelled || game.game_over || game.turn !== currentTurn || game.roles[currentTurn] !== turnRole) {
+                            return;
+                        }
+
+                        if (turnRole === 'warrior_ai') {
+                            console.log(`[WarriorAI] turn=${currentTurn} finishedBy=${result.finishedBy}`);
+                        }
+
+                        const writer = battlelogWriter as any;
+                        const move = result.move;
+                        if (move) {
+                            if (move.type === 'S') {
+                                writer.buildStation(move.r, move.c);
+                            } else if (move.type === 'M') {
+                                writer.buildMine(move.r, move.c);
+                            } else if (move.type === 'L') {
+                                writer.shootLaser(move.tr, move.tc, move.sr, move.sc);
+                            }
+                        } else {
+                            game.nextTurn();
+                        }
+                        forceUpdate();
+                    })
+                    .catch(error => {
+                        console.error('AI background execution failed', error);
+                    });
             }, 500);
-            return () => clearTimeout(timer);
+            return () => {
+                cancelled = true;
+                clearTimeout(timer);
+            };
         }
     }, [currentTurn, isGameOver, tick]);
 

@@ -1,5 +1,5 @@
 import { MarsMinersGame, type AIMove, type PlayerId, type PlayerRole } from '../MarsMinersGame';
-import type { AIPlayer } from './AIPlayer';
+import type { AIPlayer, AIThinkOptions, AIThinkResult } from './AIPlayer';
 
 type ScoredMove = {
     move: AIMove;
@@ -10,17 +10,21 @@ const PLAYER_IDS: PlayerId[] = [1, 2, 3, 4];
 
 export class WarriorAIPlayer implements AIPlayer {
     private readonly maxDepth: number;
+    private searchDeadline = 0;
+    private timedOut = false;
 
-    constructor(maxDepth = 2) {
+    constructor(maxDepth = 3) {
         this.maxDepth = maxDepth;
     }
 
-    getMove(game: MarsMinersGame): AIMove | null {
+    getMove(game: MarsMinersGame, options?: AIThinkOptions): AIThinkResult {
         const player = game.turn;
         const moves = this.generateOrderedMoves(game, player);
+        this.searchDeadline = Date.now() + (options?.maxThinkTimeMs ?? 5000);
+        this.timedOut = false;
 
         if (moves.length === 0) {
-            return null;
+            return { move: null, finishedBy: 'completed' };
         }
 
         let bestMove = moves[0].move;
@@ -29,6 +33,9 @@ export class WarriorAIPlayer implements AIPlayer {
         const beta = Number.POSITIVE_INFINITY;
 
         for (const candidate of moves) {
+            if (this.isOutOfTime()) {
+                break;
+            }
             const nextGame = this.applyMove(game, candidate.move);
             const score = -this.negamax(nextGame, this.maxDepth - 1, -beta, -alpha, player);
             if (score > bestScore) {
@@ -38,12 +45,24 @@ export class WarriorAIPlayer implements AIPlayer {
             alpha = Math.max(alpha, score);
         }
 
-        return bestMove;
+        return { move: bestMove, finishedBy: this.timedOut ? 'timeout' : 'completed' };
     }
 
     private negamax(game: MarsMinersGame, depth: number, alpha: number, beta: number, rootPlayer: PlayerId): number {
-        if (depth <= 0 || game.game_over) {
+        if (this.isOutOfTime()) {
             return this.evaluatePosition(game, rootPlayer);
+        }
+
+        if (game.game_over) {
+            return this.evaluatePosition(game, rootPlayer);
+        }
+
+        if (depth <= 0) {
+            if (this.isTacticalPosition(game, game.turn)) {
+                depth = 1;
+            } else {
+                return this.evaluatePosition(game, rootPlayer);
+            }
         }
 
         const current = game.turn;
@@ -57,6 +76,9 @@ export class WarriorAIPlayer implements AIPlayer {
         let localAlpha = alpha;
 
         for (const candidate of moves) {
+            if (this.isOutOfTime()) {
+                break;
+            }
             const nextGame = this.applyMove(game, candidate.move);
             const score = -this.negamax(nextGame, depth - 1, -beta, -localAlpha, rootPlayer);
             best = Math.max(best, score);
@@ -67,6 +89,14 @@ export class WarriorAIPlayer implements AIPlayer {
         }
 
         return best;
+    }
+
+    private isOutOfTime(): boolean {
+        const outOfTime = Date.now() >= this.searchDeadline;
+        if (outOfTime) {
+            this.timedOut = true;
+        }
+        return outOfTime;
     }
 
     private evaluatePosition(game: MarsMinersGame, rootPlayer: PlayerId): number {
@@ -124,17 +154,21 @@ export class WarriorAIPlayer implements AIPlayer {
         const weaponCells = this.getWeaponCellsForPlayer(game, player).length;
         const attackTargets = this.countEnemyStations(game, player);
         const centerControl = this.computeCenterControl(game, player);
+        const frontierQuality = this.computeFrontierQuality(game, player);
+        const imminentThreat = this.countImmediateEnemyWeaponThreats(game, player);
+        const readyTargets = this.countReadyShotTargets(game, player);
 
         let score = 0;
         score += mineCount * 160;
         score += stationCount * 28;
-        score += mobility * 14;
+        score += mobility * 18;
         score += centerControl * 10;
         score += weaponCells * 18;
+        score += frontierQuality * 16;
         score += Math.min(linePower, game.weapon_req) * 35;
 
         if (linePower >= game.weapon_req) {
-            score += 220 + attackTargets * 30;
+            score += 260 + attackTargets * 30 + readyTargets * 40;
         } else {
             score += linePower * 12;
         }
@@ -142,6 +176,12 @@ export class WarriorAIPlayer implements AIPlayer {
         if (mobility === 0 && linePower < game.weapon_req) {
             score -= 400;
         }
+
+        if (linePower === game.weapon_req - 1) {
+            score += 110;
+        }
+
+        score -= imminentThreat * 120;
 
         return score;
     }
@@ -169,13 +209,20 @@ export class WarriorAIPlayer implements AIPlayer {
                 if (!game.canBuild(r, c, player)) continue;
 
                 const openNeighbors = this.countOpenNeighbors(game, r, c);
+                const powerGain = this.measureLinePotential(game, player, r, c);
+                const blockScore = this.measureBlockingValue(game, player, r, c);
+                const enemyAdjacency = this.countAdjacentEnemyStations(game, player, r, c);
+                const ownAdjacency = this.countAdjacentOwnStations(game, player, r, c);
 
                 const dist = Math.abs(r - center[0]) + Math.abs(c - center[1]);
-                buildCandidates.push({ move: { type: 'S', r, c }, score: openNeighbors * 22 - dist * 4 + 20 });
+                buildCandidates.push({
+                    move: { type: 'S', r, c },
+                    score: 40 + openNeighbors * 22 + powerGain * 34 + blockScore * 28 + ownAdjacency * 10 + enemyAdjacency * 8 - dist * 4
+                });
 
                 const shouldConsiderMine =
                     openNeighbors <= 1 ||
-                    mobility >= 8 ||
+                    (mobility >= 8 && ownAdjacency >= 2) ||
                     linePower >= game.weapon_req;
 
                 if (shouldConsiderMine) {
@@ -184,6 +231,7 @@ export class WarriorAIPlayer implements AIPlayer {
                         Math.max(0, 2 - openNeighbors) * 35 +
                         (linePower >= game.weapon_req ? 45 : 0) +
                         (mobility >= 8 ? 20 : 0) -
+                        powerGain * 18 -
                         dist * 2;
                     buildCandidates.push({ move: { type: 'M', r, c }, score: mineScore });
                 }
@@ -191,15 +239,15 @@ export class WarriorAIPlayer implements AIPlayer {
         }
 
         buildCandidates.sort((a, b) => b.score - a.score);
-        for (const candidate of buildCandidates.slice(0, 12)) {
+        for (const candidate of buildCandidates.slice(0, 10)) {
             moves.push(candidate.move);
         }
 
         if (linePower >= game.weapon_req) {
             const weaponCells = this.getWeaponCellsForPlayer(game, player);
             const enemyTargets = this.getEnemyStations(game, player);
-            const targetLimit = Math.min(6, enemyTargets.length);
-            const sacrificeLimit = Math.min(4, weaponCells.length);
+            const targetLimit = Math.min(5, enemyTargets.length);
+            const sacrificeLimit = Math.min(3, weaponCells.length);
 
             for (const [tr, tc] of enemyTargets.slice(0, targetLimit)) {
                 for (const [sr, sc] of weaponCells.slice(0, sacrificeLimit)) {
@@ -213,33 +261,29 @@ export class WarriorAIPlayer implements AIPlayer {
 
     private scoreMove(game: MarsMinersGame, player: PlayerId, move: AIMove): number {
         if (move.type === 'L') {
-            const targetCell = game.grid[move.tr][move.tc];
-            const targetPlayer = this.getOwnerOfStation(game, targetCell);
-            let score = 800;
-            if (targetPlayer !== null) {
-                score += this.countCells(game, targetPlayer, 'st') * 18;
-                score += this.countCells(game, targetPlayer, 'mi') * 25;
-                score += game.getLinePower(targetPlayer) * 40;
-            }
-            return score;
+            return this.scoreLaserMove(game, player, move);
         }
 
         const centerDist = Math.abs(move.r - (game.height - 1) / 2) + Math.abs(move.c - (game.width - 1) / 2);
         const openNeighbors = this.countOpenNeighbors(game, move.r, move.c);
         const mobility = this.countBuildMoves(game, player);
         const linePower = game.getLinePower(player);
+        const blockScore = this.measureBlockingValue(game, player, move.r, move.c);
+        const ownAdjacency = this.countAdjacentOwnStations(game, player, move.r, move.c);
+        const enemyAdjacency = this.countAdjacentEnemyStations(game, player, move.r, move.c);
 
         if (move.type === 'M') {
             let score = 70 - centerDist * 2;
             score += Math.max(0, 2 - openNeighbors) * 60;
             score -= openNeighbors * 35;
+            score -= blockScore * 24;
             if (mobility < 6) score -= 140;
             if (linePower < game.weapon_req) score -= 40;
             return score;
         }
 
         const powerBoost = this.measureLinePotential(game, player, move.r, move.c);
-        return 240 + powerBoost * 38 + openNeighbors * 22 - centerDist * 5;
+        return 240 + powerBoost * 42 + openNeighbors * 22 + blockScore * 26 + ownAdjacency * 10 + enemyAdjacency * 8 - centerDist * 5;
     }
 
     private applyMove(game: MarsMinersGame, move: AIMove): MarsMinersGame {
@@ -280,6 +324,34 @@ export class WarriorAIPlayer implements AIPlayer {
             const nr = r + dr;
             const nc = c + dc;
             if (nr >= 0 && nr < game.height && nc >= 0 && nc < game.width && game.grid[nr][nc] === '.') {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    private countAdjacentOwnStations(game: MarsMinersGame, player: PlayerId, r: number, c: number): number {
+        let total = 0;
+        const adj = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        for (const [dr, dc] of adj) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < game.height && nc >= 0 && nc < game.width && game.grid[nr][nc] === game.players[player].st) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    private countAdjacentEnemyStations(game: MarsMinersGame, player: PlayerId, r: number, c: number): number {
+        let total = 0;
+        const adj = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        for (const [dr, dc] of adj) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr < 0 || nr >= game.height || nc < 0 || nc >= game.width) continue;
+            const owner = this.getOwnerOfStation(game, game.grid[nr][nc]);
+            if (owner !== null && owner !== player) {
                 total++;
             }
         }
@@ -353,6 +425,17 @@ export class WarriorAIPlayer implements AIPlayer {
         return control;
     }
 
+    private computeFrontierQuality(game: MarsMinersGame, player: PlayerId): number {
+        let total = 0;
+        for (let r = 0; r < game.height; r++) {
+            for (let c = 0; c < game.width; c++) {
+                if (game.grid[r][c] !== game.players[player].st) continue;
+                total += this.countOpenNeighbors(game, r, c);
+            }
+        }
+        return total;
+    }
+
     private computeCenterBias(game: MarsMinersGame, r: number, c: number): number {
         const centerR = (game.height - 1) / 2;
         const centerC = (game.width - 1) / 2;
@@ -363,6 +446,76 @@ export class WarriorAIPlayer implements AIPlayer {
         const horizontal = 1 + this.countDirection(game, player, r, c, 0, -1) + this.countDirection(game, player, r, c, 0, 1);
         const vertical = 1 + this.countDirection(game, player, r, c, -1, 0) + this.countDirection(game, player, r, c, 1, 0);
         return Math.max(horizontal, vertical);
+    }
+
+    private measureBlockingValue(game: MarsMinersGame, player: PlayerId, r: number, c: number): number {
+        let best = 0;
+        for (const pid of PLAYER_IDS) {
+            if (pid === player || game.roles[pid] === 'none' || game.player_lost[pid]) continue;
+            const horizontal = 1 + this.countDirection(game, pid, r, c, 0, -1) + this.countDirection(game, pid, r, c, 0, 1);
+            const vertical = 1 + this.countDirection(game, pid, r, c, -1, 0) + this.countDirection(game, pid, r, c, 1, 0);
+            best = Math.max(best, horizontal, vertical);
+        }
+        return best;
+    }
+
+    private scoreLaserMove(game: MarsMinersGame, player: PlayerId, move: Extract<AIMove, { type: 'L' }>): number {
+        const targetCell = game.grid[move.tr][move.tc];
+        const targetPlayer = this.getOwnerOfStation(game, targetCell);
+        let score = 760;
+
+        if (targetPlayer !== null) {
+            const targetLinePower = game.getLinePower(targetPlayer);
+            score += this.countCells(game, targetPlayer, 'st') * 14;
+            score += this.countCells(game, targetPlayer, 'mi') * 24;
+            score += targetLinePower * 60;
+            if (targetLinePower >= game.weapon_req) {
+                score += 220;
+            }
+            if (this.isWeaponCell(game, targetPlayer, move.tr, move.tc)) {
+                score += 140;
+            }
+        }
+
+        if (this.isWeaponCell(game, player, move.sr, move.sc)) {
+            score -= 40;
+        }
+
+        const remainingFrontier = this.countOpenNeighbors(game, move.sr, move.sc);
+        score -= remainingFrontier * 20;
+        score -= this.isCriticalOwnBridge(game, player, move.sr, move.sc) ? 180 : 0;
+
+        return score;
+    }
+
+    private countImmediateEnemyWeaponThreats(game: MarsMinersGame, player: PlayerId): number {
+        let total = 0;
+        for (const pid of PLAYER_IDS) {
+            if (pid === player || game.roles[pid] === 'none' || game.player_lost[pid]) continue;
+            if (game.getLinePower(pid) >= game.weapon_req - 1) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    private countReadyShotTargets(game: MarsMinersGame, player: PlayerId): number {
+        if (game.getLinePower(player) < game.weapon_req) return 0;
+        return this.getEnemyStations(game, player).length;
+    }
+
+    private isTacticalPosition(game: MarsMinersGame, player: PlayerId): boolean {
+        return game.getLinePower(player) >= game.weapon_req || this.countImmediateEnemyWeaponThreats(game, player) > 0;
+    }
+
+    private isWeaponCell(game: MarsMinersGame, player: PlayerId, r: number, c: number): boolean {
+        return this.getWeaponCellsForPlayer(game, player).some(([wr, wc]) => wr === r && wc === c);
+    }
+
+    private isCriticalOwnBridge(game: MarsMinersGame, player: PlayerId, r: number, c: number): boolean {
+        const horizontal = this.countDirection(game, player, r, c, 0, -1) + this.countDirection(game, player, r, c, 0, 1);
+        const vertical = this.countDirection(game, player, r, c, -1, 0) + this.countDirection(game, player, r, c, 1, 0);
+        return horizontal >= 2 || vertical >= 2;
     }
 
     private countDirection(game: MarsMinersGame, player: PlayerId, r: number, c: number, dr: number, dc: number): number {

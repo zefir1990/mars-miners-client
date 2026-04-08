@@ -1,5 +1,5 @@
 import type { AIMove, MarsMinersGame, PlayerId } from '../MarsMinersGame';
-import type { AIPlayer } from './AIPlayer';
+import type { AIPlayer, AIThinkOptions, AIThinkResult } from './AIPlayer';
 
 interface Candidate {
     pos: [number, number];
@@ -8,7 +8,7 @@ interface Candidate {
 }
 
 export class SimpleAIPlayer implements AIPlayer {
-    getMove(game: MarsMinersGame): AIMove | null {
+    getMove(game: MarsMinersGame, _options?: AIThinkOptions): AIThinkResult {
         const p = game.turn;
         const power = game.getLinePower(p);
 
@@ -34,7 +34,7 @@ export class SimpleAIPlayer implements AIPlayer {
                 if (enemyTargets.length > 0) {
                     const [tr, tc] = enemyTargets[Math.floor(Math.random() * enemyTargets.length)];
                     const sacrifice = myWeaponCells[Math.floor(Math.random() * myWeaponCells.length)];
-                    return { type: 'L', tr, tc, sr: sacrifice[0], sc: sacrifice[1] };
+                    return { move: { type: 'L', tr, tc, sr: sacrifice[0], sc: sacrifice[1] }, finishedBy: 'completed' };
                 }
             }
         }
@@ -60,7 +60,7 @@ export class SimpleAIPlayer implements AIPlayer {
             }
         }
 
-        if (candidates.length === 0) return null;
+        if (candidates.length === 0) return { move: null, finishedBy: 'completed' };
 
         candidates.sort((a, b) => {
             if (a.freedom !== b.freedom) return b.freedom - a.freedom;
@@ -78,6 +78,6 @@ export class SimpleAIPlayer implements AIPlayer {
             toBuild = 'M';
         }
 
-        return { type: toBuild, r, c };
+        return { move: { type: toBuild, r, c }, finishedBy: 'completed' };
     }
 }
