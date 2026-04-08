@@ -240,9 +240,19 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
 
         const isWeaponPart = weaponCells.has(`${r},${c}`);
         const isSelectedForSacrifice = pendingSacrifice && pendingSacrifice[0] === r && pendingSacrifice[1] === c;
+        const isAttackTarget = !!pendingSacrifice && isHumanTurn && (() => {
+            for (let pidStr in game.players) {
+                const pid = parseInt(pidStr) as PlayerId;
+                if (pid !== currentTurn && item === game.players[pid].st) {
+                    return true;
+                }
+            }
+            return false;
+        })();
 
         let bgColor = '#1e1e1e';
         if (isWeaponPart) bgColor = '#504614';
+        if (isAttackTarget) bgColor = '#5f1e1e';
         if (isSelectedForSacrifice) bgColor = '#ff3b30'; // Distinct Red for sacrifice
 
         // Dead cells (destroyed stations) show as grey)
