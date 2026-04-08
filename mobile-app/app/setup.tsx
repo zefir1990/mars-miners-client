@@ -22,7 +22,7 @@ export default function SetupScreen() {
     const [loaded, setLoaded] = useState(false);
 
     const cycleRole = (pid: PlayerId) => {
-        const opts: PlayerRole[] = ['human', 'ai', 'none'];
+        const opts: PlayerRole[] = ['human', 'ai', 'warrior_ai', 'none'];
         setRoles(prev => ({
             ...prev,
             [pid]: opts[(opts.indexOf(prev[pid]) + 1) % opts.length]
@@ -96,11 +96,13 @@ export default function SetupScreen() {
                     let roleLabel = t(role, lang);
 
                     return (
-                        <View key={pid} style={styles.row}>
-                            <Text style={styles.label}>{t('player', lang)} {pid}:</Text>
-                            <TouchableOpacity onPress={() => cycleRole(pid)} style={[styles.button, styles.roleButton]}>
-                                <Text style={styles.buttonText}>{roleLabel}</Text>
-                            </TouchableOpacity>
+                        <View key={pid} style={styles.playerCard}>
+                            <View style={styles.row}>
+                                <Text style={styles.label}>{t('player', lang)} {pid}:</Text>
+                                <TouchableOpacity onPress={() => cycleRole(pid)} style={[styles.button, styles.roleButton]}>
+                                    <Text style={styles.buttonText}>{roleLabel}</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     );
                 })}
@@ -133,6 +135,7 @@ const styles = StyleSheet.create({
     scrollView: { flex: 1 },
     content: { padding: 20, paddingBottom: 50 },
     sectionHeader: { fontSize: 18, color: '#aaa', marginTop: 15, marginBottom: 10 },
+    playerCard: { marginBottom: 12, backgroundColor: '#242424', borderRadius: 10, padding: 12 },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
     label: { color: '#fff', fontSize: 16 },
     button: { backgroundColor: '#333', padding: 10, borderRadius: 8, minWidth: 100, alignItems: 'center' },
