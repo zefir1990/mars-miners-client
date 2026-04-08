@@ -71,8 +71,8 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
 
                         console.log(`[AI] background thinking finished turn=${currentTurn} role=${turnRole} finishedBy=${result.finishedBy} hasMove=${result.move ? 'yes' : 'no'}`);
 
-                        if (turnRole === 'warrior_ai') {
-                            console.log(`[WarriorAI] turn=${currentTurn} finishedBy=${result.finishedBy}`);
+                        if (turnRole === 'normal_ai' || turnRole === 'hard_ai') {
+                            console.log(`[SearchAI] turn=${currentTurn} role=${turnRole} finishedBy=${result.finishedBy}`);
                         }
 
                         const writer = battlelogWriter as any;
@@ -547,7 +547,7 @@ export default function GameScreen() {
 }
 
 function thisIsAI(role: PlayerRole): boolean {
-    return role === 'ai' || role === 'warrior_ai';
+    return role === 'easy_ai' || role === 'normal_ai' || role === 'hard_ai';
 }
 
 const styles = StyleSheet.create({

@@ -4,7 +4,7 @@ import type { MarsMinersGame, PlayerId, PlayerRole, AIMove, Player } from '../Ma
 import type { AIThinkResult } from './AIPlayer';
 import { createAIPlayer } from './createAIPlayer';
 
-type AITurnRole = Extract<PlayerRole, 'ai' | 'warrior_ai'>;
+type AITurnRole = Extract<PlayerRole, 'easy_ai' | 'normal_ai' | 'hard_ai'>;
 
 type SnapshotPlayer = Pick<Player, 'st' | 'mi' | 'name' | 'pos' | 'color'>;
 
@@ -363,8 +363,16 @@ function makeSnapshot(game: MarsMinersGame): GameSnapshot {
     };
 }
 
-function roleToDifficulty(role: AITurnRole): 'simple' | 'warrior' {
-    return role === 'warrior_ai' ? 'warrior' : 'simple';
+function roleToDifficulty(role: AITurnRole): 'easy' | 'normal' | 'hard' {
+    switch (role) {
+        case 'hard_ai':
+            return 'hard';
+        case 'normal_ai':
+            return 'normal';
+        case 'easy_ai':
+        default:
+            return 'easy';
+    }
 }
 
 function deliverResult(requestId: number, result: AIThinkResult) {
@@ -544,8 +552,8 @@ function createGameFromSnapshot(snapshot: GameSnapshot): MarsMinersGame {
 function computeMove(snapshot: GameSnapshot, role: AITurnRole, maxThinkTimeMs: number): AIThinkResult {
     const game = createGameFromSnapshot(snapshot);
     const result = createAIPlayer(roleToDifficulty(role)).getMove(game, { maxThinkTimeMs });
-    if (role === 'warrior_ai' && result.finishedBy === 'timeout') {
-        const fallback = createAIPlayer('simple').getMove(game, { maxThinkTimeMs: 1 });
+    if ((role === 'normal_ai' || role === 'hard_ai') && result.finishedBy === 'timeout') {
+        const fallback = createAIPlayer('easy').getMove(game, { maxThinkTimeMs: 1 });
         return { move: fallback.move, finishedBy: 'timeout' };
     }
     return result;
@@ -579,7 +587,7 @@ export async function computeAIMoveInBackground(
     const snapshot = makeSnapshot(game);
     const serviceTimeoutMs = Math.max(1, maxThinkTimeMs);
 
-    if (Platform.OS === 'web' && role === 'warrior_ai') {
+    if (Platform.OS === 'web' && (role === 'normal_ai' || role === 'hard_ai')) {
         const worker = getWebWarriorWorker();
         if (worker) {
             const requestId = nextRequestId++;

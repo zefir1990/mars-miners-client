@@ -1,7 +1,7 @@
 import { BattlelogWriterDelegate } from './battlelog/BattlelogWriterDelegate';
 import { t } from './locales';
 
-export type PlayerRole = 'human' | 'ai' | 'warrior_ai' | 'none';
+export type PlayerRole = 'human' | 'easy_ai' | 'normal_ai' | 'hard_ai' | 'none';
 export type Cell = string; // '.', 'X', or player symbols
 export type PlayerId = 1 | 2 | 3 | 4;
 

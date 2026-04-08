@@ -48,7 +48,7 @@ export default function MainMenu() {
                     router.push({
                         pathname: '/game',
                         params: {
-                            roles: JSON.stringify(state.roles || { 1: 'human', 2: 'ai', 3: 'none', 4: 'none' }),
+                            roles: JSON.stringify(state.roles || { 1: 'human', 2: 'normal_ai', 3: 'none', 4: 'none' }),
                             grid_width: '10',
                             grid_height: '10',
                             weapon_req: (state.weapon_req || 4).toString(),

@@ -16,13 +16,37 @@ export default function SetupScreen() {
         setLang(deviceLang);
     }, []);
     const [roles, setRoles] = useState<Record<PlayerId, PlayerRole>>({
-        1: 'human', 2: 'ai', 3: 'none', 4: 'none'
+        1: 'human', 2: 'normal_ai', 3: 'none', 4: 'none'
     });
     const [weaponReq, setWeaponReq] = useState(4);
     const [loaded, setLoaded] = useState(false);
 
+    const normalizeRole = (role: string): PlayerRole => {
+        switch (role) {
+            case 'easy_ai':
+            case 'normal_ai':
+            case 'hard_ai':
+            case 'human':
+            case 'none':
+                return role;
+            case 'ai':
+                return 'easy_ai';
+            case 'warrior_ai':
+                return 'hard_ai';
+            default:
+                return 'none';
+        }
+    };
+
+    const normalizeRoles = (input: Record<string, string>): Record<PlayerId, PlayerRole> => ({
+        1: normalizeRole(input[1] ?? input['1'] ?? 'human'),
+        2: normalizeRole(input[2] ?? input['2'] ?? 'normal_ai'),
+        3: normalizeRole(input[3] ?? input['3'] ?? 'none'),
+        4: normalizeRole(input[4] ?? input['4'] ?? 'none'),
+    });
+
     const cycleRole = (pid: PlayerId) => {
-        const opts: PlayerRole[] = ['human', 'ai', 'warrior_ai', 'none'];
+        const opts: PlayerRole[] = ['human', 'easy_ai', 'normal_ai', 'hard_ai', 'none'];
         setRoles(prev => ({
             ...prev,
             [pid]: opts[(opts.indexOf(prev[pid]) + 1) % opts.length]
@@ -41,7 +65,7 @@ export default function SetupScreen() {
                 const saved = await AsyncStorage.getItem('mm_setup_config');
                 if (saved) {
                     const config = JSON.parse(saved);
-                    if (config.roles) setRoles(config.roles);
+                    if (config.roles) setRoles(normalizeRoles(config.roles));
                     if (config.weaponReq) setWeaponReq(config.weaponReq);
                 }
             } catch (e) {
