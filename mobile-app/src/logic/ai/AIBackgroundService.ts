@@ -45,9 +45,7 @@ function computeWarriorMove(snapshot, maxThinkTimeMs) {
   const player = snapshot.turn;
   const moves = generateOrderedMoves(ctx, snapshot, player);
   if (moves.length === 0) {
-    return ctx.timedOut
-      ? { move: computeSimpleMove(snapshot), finishedBy: 'timeout' }
-      : { move: null, finishedBy: 'completed' };
+    return { move: null, finishedBy: ctx.timedOut ? 'timeout' : 'completed' };
   }
   let bestMove = moves[0].move;
   let bestScore = Number.NEGATIVE_INFINITY;
@@ -63,10 +61,7 @@ function computeWarriorMove(snapshot, maxThinkTimeMs) {
     }
     alpha = Math.max(alpha, score);
   }
-  if (ctx.timedOut) {
-    return { move: computeSimpleMove(snapshot), finishedBy: 'timeout' };
-  }
-  return { move: bestMove, finishedBy: 'completed' };
+  return { move: bestMove, finishedBy: ctx.timedOut ? 'timeout' : 'completed' };
 }
 function createContext(snapshot, maxThinkTimeMs) { return { deadline: Date.now() + (maxThinkTimeMs || 5000), timedOut: false }; }
 function isOutOfTime(ctx) { const out = Date.now() >= ctx.deadline; if (out) ctx.timedOut = true; return out; }
@@ -300,46 +295,6 @@ function isTacticalPosition(ctx, snapshot, player) { return getLinePower(ctx, sn
 function isWeaponCell(ctx, snapshot, player, r, c) { if (isOutOfTime(ctx)) return false; return getWeaponCellsForPlayer(ctx, snapshot, player).some(function (pos) { return pos[0] === r && pos[1] === c; }); }
 function isCriticalOwnBridge(ctx, snapshot, player, r, c) { if (isOutOfTime(ctx)) return false; const horizontal = countDirection(ctx, snapshot, player, r, c, 0, -1) + countDirection(ctx, snapshot, player, r, c, 0, 1); const vertical = countDirection(ctx, snapshot, player, r, c, -1, 0) + countDirection(ctx, snapshot, player, r, c, 1, 0); return horizontal >= 2 || vertical >= 2; }
 function countDirection(ctx, snapshot, player, r, c, dr, dc) { if (isOutOfTime(ctx)) return 0; let total = 0; let nr = r + dr; let nc = c + dc; while (!isOutOfTime(ctx) && nr >= 0 && nr < snapshot.height && nc >= 0 && nc < snapshot.width && snapshot.grid[nr][nc] === snapshot.players[player].st) { total++; nr += dr; nc += dc; } return total; }
-function computeSimpleMove(snapshot) {
-  const player = snapshot.turn;
-  const unlimited = { deadline: Number.MAX_SAFE_INTEGER, timedOut: false };
-  const power = getLinePower(unlimited, snapshot, player);
-  if (power >= snapshot.weapon_req) {
-    const weaponCells = getWeaponCellsForPlayer(unlimited, snapshot, player);
-    if (weaponCells.length > 0) {
-      for (let r = 0; r < snapshot.height; r++) {
-        for (let c = 0; c < snapshot.width; c++) {
-          const owner = getOwnerOfStation(unlimited, snapshot, snapshot.grid[r][c]);
-          if (owner !== null && owner !== player) {
-            const sacrifice = weaponCells[0];
-            return { type: 'L', tr: r, tc: c, sr: sacrifice[0], sc: sacrifice[1] };
-          }
-        }
-      }
-    }
-  }
-  const candidates = [];
-  const center = [(snapshot.height - 1) / 2, (snapshot.width - 1) / 2];
-  for (let r = 0; r < snapshot.height; r++) {
-    for (let c = 0; c < snapshot.width; c++) {
-      if (!canBuild(snapshot, r, c, player)) continue;
-      const freedom = countOpenNeighbors(unlimited, snapshot, r, c);
-      const dist = Math.sqrt(Math.pow(r - center[0], 2) + Math.pow(c - center[1], 2));
-      candidates.push({ r: r, c: c, freedom: freedom, dist: dist });
-    }
-  }
-  if (candidates.length === 0) return null;
-  candidates.sort(function (a, b) {
-    if (a.freedom !== b.freedom) return b.freedom - a.freedom;
-    return a.dist - b.dist;
-  });
-  const choice = candidates[0];
-  let type = 'S';
-  if (choice.freedom === 0) {
-    type = power < snapshot.weapon_req ? 'S' : 'M';
-  }
-  return { type: type, r: choice.r, c: choice.c };
-}
 `;
 
 function makeSnapshot(game: MarsMinersGame): GameSnapshot {
@@ -551,12 +506,7 @@ function createGameFromSnapshot(snapshot: GameSnapshot): MarsMinersGame {
 
 function computeMove(snapshot: GameSnapshot, role: AITurnRole, maxThinkTimeMs: number): AIThinkResult {
     const game = createGameFromSnapshot(snapshot);
-    const result = createAIPlayer(roleToDifficulty(role)).getMove(game, { maxThinkTimeMs });
-    if ((role === 'normal_ai' || role === 'hard_ai') && result.finishedBy === 'timeout') {
-        const fallback = createAIPlayer('easy').getMove(game, { maxThinkTimeMs: 1 });
-        return { move: fallback.move, finishedBy: 'timeout' };
-    }
-    return result;
+    return createAIPlayer(roleToDifficulty(role)).getMove(game, { maxThinkTimeMs });
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, onTimeout: () => void, fallbackValue: T): Promise<T> {
@@ -585,7 +535,7 @@ export async function computeAIMoveInBackground(
     maxThinkTimeMs: number
 ): Promise<AIThinkResult> {
     const snapshot = makeSnapshot(game);
-    const serviceTimeoutMs = Math.max(1, maxThinkTimeMs);
+    const serviceTimeoutMs = Math.max(1, maxThinkTimeMs + 1000);
 
     if (Platform.OS === 'web' && (role === 'normal_ai' || role === 'hard_ai')) {
         const worker = getWebWarriorWorker();
