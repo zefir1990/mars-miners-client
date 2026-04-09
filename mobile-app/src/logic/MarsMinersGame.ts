@@ -372,11 +372,42 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
 
     canPlayerMove(p: PlayerId): boolean {
         if (this.player_lost[p]) return false;
+        
         for (let r = 0; r < this.height; r++) {
             for (let c = 0; c < this.width; c++) {
                 if (this.canBuild(r, c, p)) return true;
             }
         }
+
+        // If blocked, they can still move if they have a charged weapon and an enemy to shoot
+        if (this.getLinePower(p) >= this.weapon_req) {
+            const weaponCells = this.getWeaponCells();
+            // Need at least one valid weapon cell (owned by us)
+            let hasOwnWeapon = false;
+            for (const posStr of weaponCells) {
+                const [r, c] = posStr.split(',').map(Number);
+                if (this.grid[r][c] === this.players[p].st) {
+                    hasOwnWeapon = true;
+                    break;
+                }
+            }
+
+            if (hasOwnWeapon) {
+                for (let r = 0; r < this.height; r++) {
+                    for (let c = 0; c < this.width; c++) {
+                        const cell = this.grid[r][c];
+                        // Check if it's an enemy station
+                        for (let pid = 1; pid <= 4; pid++) {
+                            const id = pid as PlayerId;
+                            if (id !== p && this.roles[id] !== 'none' && cell === this.players[id].st) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         return false;
     }
 
