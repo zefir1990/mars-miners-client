@@ -3,13 +3,27 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { getLocales } from 'expo-localization';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { t } from '../src/logic/locales';
 
 export default function MainMenu() {
     const router = useRouter();
     const [lang, setLang] = useState<'en' | 'ru'>('en');
+    const [showTrainingRules, setShowTrainingRules] = useState(false);
+
+    const startTraining = () => {
+        setShowTrainingRules(false);
+        router.push({
+            pathname: '/game',
+            params: {
+                roles: JSON.stringify({ 1: 'human', 2: 'easy_ai', 3: 'none', 4: 'none' }),
+                grid_width: '10',
+                grid_height: '10',
+                weapon_req: '4'
+            }
+        });
+    };
 
     useEffect(() => {
         const deviceLang = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
@@ -95,6 +109,10 @@ export default function MainMenu() {
                 <Text style={styles.title}>MARS MINERS</Text>
 
                 <View style={styles.buttonContainer}>
+                    <TouchableOpacity onPress={() => setShowTrainingRules(true)} style={[styles.button, styles.trainingButton]}>
+                        <Text style={styles.buttonText}>{t('training_btn', lang)}</Text>
+                    </TouchableOpacity>
+
                     <TouchableOpacity onPress={startNewGame} style={styles.button}>
                         <Text style={styles.buttonText}>{t('new_game_btn', lang) || "New Game"}</Text>
                     </TouchableOpacity>
@@ -108,6 +126,27 @@ export default function MainMenu() {
                     </TouchableOpacity>
                 </View>
             </View>
+            <Modal
+                visible={showTrainingRules}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowTrainingRules(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{t('training_rules_title', lang)}</Text>
+                        <Text style={styles.modalMessage}>{t('training_rules_text', lang)}</Text>
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity style={[styles.modalButton, styles.modalCancelButton]} onPress={() => setShowTrainingRules(false)}>
+                                <Text style={styles.modalButtonText}>{lang === 'ru' ? 'Отмена' : 'Cancel'}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.modalButton} onPress={startTraining}>
+                                <Text style={styles.modalButtonText}>{t('start_training_btn', lang)}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -131,5 +170,14 @@ const styles = StyleSheet.create({
     },
     loadButton: { backgroundColor: '#34c759' },
     multiButton: { backgroundColor: '#ff9500' },
-    buttonText: { color: '#fff', fontSize: 20, fontWeight: 'bold' }
+    trainingButton: { backgroundColor: '#8a2be2' },
+    buttonText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center' },
+    modalContent: { backgroundColor: '#2a2a2a', padding: 30, borderRadius: 15, alignItems: 'center', minWidth: 300, maxWidth: '90%' },
+    modalTitle: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 15, textAlign: 'center' },
+    modalMessage: { fontSize: 16, color: '#ccc', textAlign: 'center', marginBottom: 25, lineHeight: 24 },
+    modalButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 10 },
+    modalButton: { backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, flex: 1, marginHorizontal: 5, alignItems: 'center' },
+    modalCancelButton: { backgroundColor: '#555' },
+    modalButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });
