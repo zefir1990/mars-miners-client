@@ -30,22 +30,62 @@ export class MinimaxAIPlayer implements AIPlayer {
         this.searchDeadline = Date.now() + (options?.maxThinkTimeMs ?? 5000);
         this.timedOut = false;
 
-        const moves = this.generateOrderedMoves(game, player);
+        const allMoves = this.generateOrderedMoves(game, player);
 
-        if (moves.length === 0) {
+        if (allMoves.length === 0) {
             return { move: null, finishedBy: this.timedOut ? 'timeout' : 'completed' };
+        }
+
+        const moves: ScoredMove[] = [];
+        let winningMove: AIMove | null = null;
+
+        for (const candidate of allMoves) {
+            const nextGame = this.applyMove(game, candidate.move);
+
+            if (nextGame.game_over) {
+                const scores = nextGame.getScores();
+                let bestScore = -1;
+                let winners: PlayerId[] = [];
+                for (const pid of PLAYER_IDS) {
+                    if (nextGame.roles[pid] === 'none') continue;
+                    const s = scores[pid] || 0;
+                    if (s > bestScore) { bestScore = s; winners = [pid]; }
+                    else if (s === bestScore) winners.push(pid);
+                }
+                
+                if (winners.includes(player) && winners.length === 1) {
+                    winningMove = candidate.move;
+                    break;
+                }
+            }
+
+            if (nextGame.player_lost[player] && !nextGame.game_over) {
+                // Suicide move that doesn't immediately win. Ignore it.
+                continue;
+            }
+
+            moves.push(candidate);
+        }
+
+        if (winningMove) {
+            return { move: winningMove, finishedBy: 'completed' };
+        }
+
+        // Fallback if all moves block us and don't win immediately
+        if (moves.length === 0 && allMoves.length > 0) {
+            moves.push(...allMoves);
         }
 
         let bestMove = moves[0].move;
         let bestScore = Number.NEGATIVE_INFINITY;
         let alpha = Number.NEGATIVE_INFINITY;
-        const beta = Number.POSITIVE_INFINITY;
+        let beta = Number.POSITIVE_INFINITY;
 
         for (const candidate of moves) {
             if (this.isOutOfTime()) break;
 
             const nextGame = this.applyMove(game, candidate.move);
-            const score = -this.negamax(nextGame, this.maxDepth - 1, -beta, -alpha, player);
+            const score = this.minimax(nextGame, this.maxDepth - 1, alpha, beta, player);
             
             if (score > bestScore) {
                 bestScore = score;
@@ -60,7 +100,7 @@ export class MinimaxAIPlayer implements AIPlayer {
         };
     }
 
-    private negamax(game: MarsMinersGame, depth: number, alpha: number, beta: number, rootPlayer: PlayerId): number {
+    private minimax(game: MarsMinersGame, depth: number, alpha: number, beta: number, rootPlayer: PlayerId): number {
         if (this.isOutOfTime() || game.game_over || depth <= 0) {
             return this.evaluatePosition(game, rootPlayer);
         }
@@ -72,17 +112,24 @@ export class MinimaxAIPlayer implements AIPlayer {
             return this.evaluatePosition(game, rootPlayer);
         }
 
-        let best = Number.NEGATIVE_INFINITY;
-        let localAlpha = alpha;
+        const isMaximize = (current === rootPlayer);
+        let best = isMaximize ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
 
         for (const candidate of moves) {
             if (this.isOutOfTime()) break;
 
             const nextGame = this.applyMove(game, candidate.move);
-            const score = -this.negamax(nextGame, depth - 1, -beta, -localAlpha, rootPlayer);
-            best = Math.max(best, score);
-            localAlpha = Math.max(localAlpha, score);
-            if (localAlpha >= beta) break;
+            const score = this.minimax(nextGame, depth - 1, alpha, beta, rootPlayer);
+
+            if (isMaximize) {
+                best = Math.max(best, score);
+                alpha = Math.max(alpha, score);
+            } else {
+                best = Math.min(best, score);
+                beta = Math.min(beta, score);
+            }
+
+            if (beta <= alpha) break;
         }
 
         return best;
