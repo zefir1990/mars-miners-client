@@ -1,17 +1,16 @@
 import type { AIPlayer } from './AIPlayer';
-import { SimpleAIPlayer } from './SimpleAIPlayer';
-import { WarriorAIPlayer } from './WarriorAIPlayer';
+import { MinimaxAIPlayer } from './MinimaxAIPlayer';
 
 export type AIDifficulty = 'easy' | 'normal' | 'hard';
 
 export function createAIPlayer(difficulty: AIDifficulty = 'easy'): AIPlayer {
     switch (difficulty) {
         case 'hard':
-            return new WarriorAIPlayer(3);
+            return new MinimaxAIPlayer(4);
         case 'normal':
-            return new WarriorAIPlayer(2);
+            return new MinimaxAIPlayer(3);
         case 'easy':
         default:
-            return new SimpleAIPlayer();
+            return new MinimaxAIPlayer(2);
     }
 }

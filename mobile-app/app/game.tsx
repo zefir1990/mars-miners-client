@@ -25,17 +25,23 @@ interface GameViewProps {
 function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId, userId, connectionStatus }: GameViewProps) {
     const router = useRouter();
     console.log('GameView Roles:', game.roles);
-    const maxAIThinkTimeMs = 30000;
+    // Capture state for Effect dependencies and Render
+    const currentTurn = game.turn;
+    const isGameOver = game.game_over;
+    const turnRole = game.roles[currentTurn];
+
+    const getThinkTime = (role: PlayerRole) => {
+        if (role === 'hard_ai') return 10000;
+        if (role === 'normal_ai') return 5000;
+        if (role === 'easy_ai') return 2000;
+        return 5000;
+    };
+    const maxAIThinkTimeMs = getThinkTime(turnRole);
     const aiRequestSeqRef = useRef(0);
 
     // Force update helper
     const [tick, setTick] = useState(0);
     const forceUpdate = () => setTick(t => t + 1);
-
-    // Capture state for Effect dependencies and Render
-    const currentTurn = game.turn;
-    const isGameOver = game.game_over;
-    const turnRole = game.roles[currentTurn];
     // In multiplayer (sessionId exists), check if it's OUR turn.
     // In singleplayer, just check if it's a human role.
     const myPlayerId = userId ? game.getPlayerId(userId) : null;
