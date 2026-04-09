@@ -126,6 +126,12 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
         }
     }, [isGameOver]);
 
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            document.title = sessionId ? 'Mars Miners - Multiplayer Battle' : 'Mars Miners - Battle';
+        }
+    }, [sessionId]);
+
     const handleSave = async () => {
         try {
             const fileName = `mars-miners-battle-log.txt`;

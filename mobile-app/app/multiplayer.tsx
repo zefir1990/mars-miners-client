@@ -14,6 +14,10 @@ export default function MultiplayerScreen() {
         const detected = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
         setLang(detected);
     }, []);
+
+    useEffect(() => {
+        document.title = 'Mars Miners - Multiplayer';
+    }, []);
     const [sessionId, setSessionId] = useState('');
     const generateId = () => Math.random().toString(36).substring(2, 10);
     const [userId, setUserId] = useState("");

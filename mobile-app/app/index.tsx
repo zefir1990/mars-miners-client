@@ -16,6 +16,12 @@ export default function MainMenu() {
         setLang(deviceLang);
     }, []);
 
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            document.title = 'Mars Miners';
+        }
+    }, []);
+
     const startNewGame = () => {
         router.push('/setup');
     };

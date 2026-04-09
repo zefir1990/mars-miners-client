@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getLocales } from 'expo-localization';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlayerId, PlayerRole } from '../src/logic/MarsMinersGame';
 import { t } from '../src/logic/locales';
@@ -14,6 +14,12 @@ export default function SetupScreen() {
     useEffect(() => {
         const deviceLang = getLocales()[0]?.languageCode?.startsWith('ru') ? 'ru' : 'en';
         setLang(deviceLang);
+    }, []);
+
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            document.title = 'Mars Miners - Setup';
+        }
     }, []);
     const [roles, setRoles] = useState<Record<PlayerId, PlayerRole>>({
         1: 'human', 2: 'normal_ai', 3: 'none', 4: 'none'
