@@ -49,6 +49,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
 
     const [selectedCell, setSelectedCell] = useState<{ r: number, c: number } | null>(null);
     const [popupSize, setPopupSize] = useState({ width: 0, height: 0 });
+    const [showLog, setShowLog] = useState(false);
     const [highlight, setHighlight] = useState(game.highlight_weapon);
     const [pendingSacrifice, setPendingSacrifice] = useState<[number, number] | null>(null);
     const [showGameOverModal, setShowGameOverModal] = useState(false);
@@ -356,7 +357,9 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                         })}
                     </View>
                 </div>
-                <View style={{ width: 40 }} />
+                <TouchableOpacity onPress={() => setShowLog(!showLog)} style={styles.logToggle}>
+                    <Text style={styles.btnText}>{showLog ? '📋' : '📑'}</Text>
+                </TouchableOpacity>
             </View>
 
             <View style={styles.gridContainer} onLayout={onLayout}>
@@ -426,37 +429,41 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                 )}
             </View>
 
-            <View style={styles.logContainer}>
-                <ScrollView
-                    ref={(ref) => ref?.scrollToEnd({ animated: true })}
-                    style={styles.logScrollView}
-                    contentContainerStyle={styles.logContent}
-                >
-                    {game.battleLog.map((log, i) => (
-                        <Text key={i} style={styles.logText}>
-                            {`Turn ${i + 1}: ${log}`}
-                        </Text>
-                    ))}
-                </ScrollView>
-            </View>
+            {showLog && (
+                <>
+                    <View style={styles.logContainer}>
+                        <ScrollView
+                            ref={(ref) => ref?.scrollToEnd({ animated: true })}
+                            style={styles.logScrollView}
+                            contentContainerStyle={styles.logContent}
+                        >
+                            {game.battleLog.map((log, i) => (
+                                <Text key={i} style={styles.logText}>
+                                    {`Turn ${i + 1}: ${log}`}
+                                </Text>
+                            ))}
+                        </ScrollView>
+                    </View>
 
-            <View style={styles.bottomBar}>
-                {sessionId && (
-                    <TouchableOpacity
-                        style={[styles.bottomBtn, { backgroundColor: '#8e44ad' }]}
-                        onPress={copySession}
-                    >
-                        <Text style={styles.btnLabel}>{t('copy_btn', 'en')}</Text>
-                    </TouchableOpacity>
-                )}
+                    <View style={styles.bottomBar}>
+                        {sessionId && (
+                            <TouchableOpacity
+                                style={[styles.bottomBtn, { backgroundColor: '#8e44ad' }]}
+                                onPress={copySession}
+                            >
+                                <Text style={styles.btnLabel}>{t('copy_btn', 'en')}</Text>
+                            </TouchableOpacity>
+                        )}
 
-                <TouchableOpacity
-                    style={[styles.bottomBtn, styles.saveButtonUI]}
-                    onPress={handleSave}
-                >
-                    <Text style={styles.btnLabel}>{t('save', 'en')}</Text>
-                </TouchableOpacity>
-            </View>
+                        <TouchableOpacity
+                            style={[styles.bottomBtn, styles.saveButtonUI]}
+                            onPress={handleSave}
+                        >
+                            <Text style={styles.btnLabel}>{t('save', 'en')}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </>
+            )}
 
             <Modal
                 visible={showGameOverModal}
@@ -609,6 +616,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#121212' },
     header: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 10, height: 70, borderBottomWidth: 1, borderBottomColor: '#333' },
     backBtn: { padding: 10 },
+    logToggle: { padding: 10, width: 50, alignItems: 'center' },
     btnText: { color: '#fff', fontSize: 24 },
     headerInfo: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     headerTitle: { color: '#fff', textAlign: 'center', fontSize: 14, marginBottom: 2 },
