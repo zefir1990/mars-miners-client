@@ -6,9 +6,26 @@ import { Platform } from 'react-native';
 import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFonts, RobotoMono_700Bold } from '@expo-google-fonts/roboto-mono';
+import { Inter_900Black } from '@expo-google-fonts/inter';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Prevent the splash screen from auto-hiding before asset loading is complete.
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  const [loaded, error] = useFonts({
+    RobotoMono_700Bold,
+    Inter_900Black,
+  });
+
+  useEffect(() => {
+    if (loaded || error) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded, error]);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -21,6 +38,10 @@ export default function RootLayout() {
       document.head.appendChild(meta);
     }
   }, []);
+
+  if (!loaded && !error) {
+    return null;
+  }
 
   return (
     <SafeAreaProvider>

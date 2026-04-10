@@ -399,8 +399,12 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                             style={{
                                 color,
                                 fontSize: cellSize * 0.4,
-                                fontWeight: 'bold',
-                                opacity: 0.95
+                                fontFamily: 'Inter_900Black',
+                                fontWeight: '900',
+                                opacity: 0.95,
+                                textAlignVertical: 'center',
+                                includeFontPadding: false,
+                                transform: [{ translateY: 0 }]
                             }}
                         >
                             {displayText}
