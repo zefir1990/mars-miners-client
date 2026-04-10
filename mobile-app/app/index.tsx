@@ -11,6 +11,7 @@ export default function MainMenu() {
     const router = useRouter();
     const [lang, setLang] = useState<'en' | 'ru'>('en');
     const [showTrainingRules, setShowTrainingRules] = useState(false);
+    const [showSingleplayerModal, setShowSingleplayerModal] = useState(false);
     const [showMultiplayerModal, setShowMultiplayerModal] = useState(false);
     const [showSessionIdModal, setShowSessionIdModal] = useState(false);
     const [generatedSessionId, setGeneratedSessionId] = useState('');
@@ -210,6 +211,21 @@ export default function MainMenu() {
         router.push('/multiplayer');
     };
 
+    const handleSingleplayerTraining = () => {
+        setShowSingleplayerModal(false);
+        setShowTrainingRules(true);
+    };
+
+    const handleSingleplayerNewGame = () => {
+        setShowSingleplayerModal(false);
+        router.push('/setup');
+    };
+
+    const handleSingleplayerLoad = () => {
+        setShowSingleplayerModal(false);
+        loadGame();
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.content}>
@@ -217,23 +233,11 @@ export default function MainMenu() {
 
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity 
-                        onPress={() => setShowTrainingRules(true)} 
-                        style={[styles.button, styles.trainingButton]}
-                        testID="training-button"
-                    >
-                        <Text style={styles.buttonText}>{t('training_btn', lang)}</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity 
-                        onPress={startNewGame} 
+                        onPress={() => setShowSingleplayerModal(true)} 
                         style={styles.button}
-                        testID="new-game-button"
+                        testID="singleplayer-button"
                     >
-                        <Text style={styles.buttonText}>{t('new_game_btn', lang) || "New Game"}</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={loadGame} style={[styles.button, styles.loadButton]}>
-                        <Text style={styles.buttonText}>{t('load_game_btn', lang)}</Text>
+                        <Text style={styles.buttonText}>{t('singleplayer', lang)}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity 
@@ -249,6 +253,50 @@ export default function MainMenu() {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            <Modal
+                visible={showSingleplayerModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowSingleplayerModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{t('singleplayer', lang)}</Text>
+                        
+                        <TouchableOpacity 
+                            style={[styles.modalButton, { backgroundColor: '#8a2be2', width: '100%', marginBottom: 15 }]} 
+                            onPress={handleSingleplayerTraining}
+                            testID="training-button"
+                        >
+                            <Text style={styles.modalButtonText}>{t('training_btn', lang)}</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={[styles.modalButton, { backgroundColor: '#4a9eff', width: '100%', marginBottom: 15 }]} 
+                            onPress={handleSingleplayerNewGame}
+                            testID="new-game-button"
+                        >
+                            <Text style={styles.modalButtonText}>{t('new_game_btn', lang)}</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={[styles.modalButton, { backgroundColor: '#34c759', width: '100%', marginBottom: 15 }]} 
+                            onPress={handleSingleplayerLoad}
+                            testID="load-game-button"
+                        >
+                            <Text style={styles.modalButtonText}>{t('load_game_btn', lang)}</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={[styles.modalButton, styles.modalCancelButton, { width: '100%' }]} 
+                            onPress={() => setShowSingleplayerModal(false)}
+                        >
+                            <Text style={styles.modalButtonText}>{lang === 'ru' ? 'Отмена' : 'Cancel'}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
             <Modal
                 visible={showTrainingRules}
                 transparent={true}

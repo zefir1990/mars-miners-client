@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Clipboard, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Clipboard, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MarsMinersGame, PlayerId, PlayerRole } from '../src/logic/MarsMinersGame';
 import { computeAIMoveInBackground } from '../src/logic/ai/AIBackgroundService';
@@ -55,6 +55,8 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
     const [pendingSacrifice, setPendingSacrifice] = useState<[number, number] | null>(null);
     const [showGameOverModal, setShowGameOverModal] = useState(false);
     const [isAIThinking, setIsAIThinking] = useState(false);
+    const [isIndicatorVisible, setIsIndicatorVisible] = useState(false);
+    const aiOpacity = useRef(new Animated.Value(0)).current;
     const [replayIdx, setReplayIdx] = useState(0);
 
     // Battlelog Playback
@@ -148,6 +150,29 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
             };
         }
     }, [currentTurn, isGameOver, tick, battlelogWriter, game, isReplayMode, maxAIThinkTimeMs, turnRole]);
+
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (isAIThinking) {
+            timer = setTimeout(() => {
+                setIsIndicatorVisible(true);
+                Animated.timing(aiOpacity, {
+                    toValue: 1,
+                    duration: 500,
+                    useNativeDriver: true,
+                }).start();
+            }, 1000);
+        } else {
+            Animated.timing(aiOpacity, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: true,
+            }).start(() => setIsIndicatorVisible(false));
+        }
+        return () => {
+            if (timer) clearTimeout(timer);
+        };
+    }, [isAIThinking, aiOpacity]);
 
     useEffect(() => {
         if (isGameOver) {
@@ -391,11 +416,11 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
             </View>
 
             <View style={styles.gridContainer} onLayout={onLayout}>
-                {isAIThinking && thisIsAI(turnRole) && (
-                    <View style={styles.aiThinkingOverlay}>
+                {isIndicatorVisible && (
+                    <Animated.View style={[styles.aiThinkingOverlay, { opacity: aiOpacity }]}>
                         <ActivityIndicator size="large" color="#ffffff" />
                         <Text style={styles.aiThinkingText}>{t('ai_thinking', 'en')}</Text>
-                    </View>
+                    </Animated.View>
                 )}
                 {cellSize > 0 && (
                     <View style={{ width: cellSize * game.width, height: cellSize * game.height }}>

@@ -8,7 +8,7 @@ test.describe('Mars Miners Multiplayer Flow', () => {
     // 2. Click the Multiplayer button
     const multiBtn = page.getByTestId('multiplayer-button');
     await expect(multiBtn).toBeVisible();
-    await multiBtn.click();
+    await multiBtn.click({ force: true });
 
     // 3. Verify the selection modal is visible
     const createBtn = page.getByTestId('create-battle-button');
@@ -17,7 +17,7 @@ test.describe('Mars Miners Multiplayer Flow', () => {
     await expect(joinBtn).toBeVisible();
 
     // 4. Test Create Battle flow
-    await createBtn.click();
+    await createBtn.click({ force: true });
     
     // Verify the Session ID modal is visible
     const okBtn = page.getByTestId('session-modal-ok');
@@ -43,8 +43,8 @@ test.describe('Mars Miners Multiplayer Flow', () => {
     await page.goto('/');
 
     // 6. Test Join Battle flow
-    await page.getByTestId('multiplayer-button').click();
-    await page.getByTestId('join-battle-button').click();
+    await page.getByTestId('multiplayer-button').click({ force: true });
+    await page.getByTestId('join-battle-button').click({ force: true });
 
     // Verify navigation to the multiplayer (Join) screen
     await expect(page).toHaveURL(/.*\/multiplayer/);

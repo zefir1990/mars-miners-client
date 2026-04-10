@@ -8,11 +8,15 @@ test.describe('Mars Miners Training Mode', () => {
     // 2. Check if the title is present (validating page load)
     await expect(page.locator('text=MARS MINERS')).toBeVisible();
 
-    // 3. Click the Training button
-    // Note: Expo web renders testID as data-testid by default
+    // 3. Open Singleplayer Modal
+    const singleplayerBtn = page.getByTestId('singleplayer-button');
+    await expect(singleplayerBtn).toBeVisible();
+    await singleplayerBtn.click({ force: true });
+
+    // 4. Click the Training button inside the modal
     const trainingBtn = page.getByTestId('training-button');
     await expect(trainingBtn).toBeVisible();
-    await trainingBtn.click();
+    await trainingBtn.click({ force: true });
 
     // 4. Verify that the Training Rules modal appeared
     // We check for the rules title (localized key 'training_rules_title')

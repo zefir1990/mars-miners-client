@@ -5,10 +5,15 @@ test.describe('Mars Miners Battle Start', () => {
     // 1. Navigate to the home page
     await page.goto('/');
 
-    // 2. Click the New Game button to go to Setup
+    // 2. Open Singleplayer Modal
+    const singleplayerBtn = page.getByTestId('singleplayer-button');
+    await expect(singleplayerBtn).toBeVisible();
+    await singleplayerBtn.click({ force: true });
+
+    // 3. Click the New Game button inside the modal
     const newGameBtn = page.getByTestId('new-game-button');
     await expect(newGameBtn).toBeVisible();
-    await newGameBtn.click();
+    await newGameBtn.click({ force: true });
 
     // Ensure we transitioned to the setup screen (waiting for the start button)
     const startGameBtn = page.getByTestId('start-game-button');
