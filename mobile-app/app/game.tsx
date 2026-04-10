@@ -267,7 +267,10 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
         })();
 
         let bgColor = '#1e1e1e';
-        if (isWeaponPart) bgColor = '#504614';
+        if (isWeaponPart) {
+            const isEnemy = item !== game.players[currentTurn].st;
+            bgColor = isEnemy ? '#4a2c1e' : '#504614';
+        }
         if (isAttackTarget) bgColor = '#5f1e1e';
         if (isSelectedForSacrifice) bgColor = '#ff3b30'; // Distinct Red for sacrifice
 
@@ -582,7 +585,11 @@ export default function GameScreen() {
     }, [params.roles]);
 
     const handleBack = () => {
-        router.back();
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace('/');
+        }
     };
 
     if (!isInitialized || !gameRef.current) {
