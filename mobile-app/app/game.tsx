@@ -385,7 +385,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
 
                             return (
                                 <View
-                                    style={[styles.buildOverlay, { left, top }]}
+                                    style={[styles.buildOverlay, { left, top, opacity: popupSize.width > 0 ? 1 : 0 }]}
                                     onLayout={(e) => {
                                         const { width, height } = e.nativeEvent.layout;
                                         if (width !== popupSize.width || height !== popupSize.height) {
