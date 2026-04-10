@@ -44,12 +44,6 @@ export default function MultiplayerScreen() {
         });
     };
 
-    const copySession = () => {
-        if (!sessionId) return;
-        Clipboard.setString(sessionId);
-        Alert.alert(t('copy_btn', lang), sessionId);
-    };
-
     const handleBack = () => {
         router.back();
     };
@@ -82,11 +76,6 @@ export default function MultiplayerScreen() {
                     </View>
                 </View>
 
-                {sessionId ? (
-                    <TouchableOpacity onPress={copySession} style={styles.shareBtn}>
-                        <Text style={styles.buttonText}>{t('copy_btn', lang)}</Text>
-                    </TouchableOpacity>
-                ) : null}
 
                 <View style={styles.spacer} />
 
@@ -94,22 +83,13 @@ export default function MultiplayerScreen() {
                     onPress={() => startGame(false)}
                     style={[styles.startButton, !sessionId && styles.disabledButton]}
                     disabled={!sessionId}
+                    testID="join-game-final-button"
                 >
                     <Text style={styles.startButtonText}>{t('join_game_btn', lang)}</Text>
                 </TouchableOpacity>
 
                 <View style={{ height: 20 }} />
 
-                <TouchableOpacity
-                    onPress={() => {
-                        const newId = generateId();
-                        setSessionId(newId);
-                        startGame(true, newId);
-                    }}
-                    style={[styles.startButton, { backgroundColor: '#34c759' }]}
-                >
-                    <Text style={styles.startButtonText}>{t('create_session', lang)}</Text>
-                </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
     );

@@ -139,3 +139,4 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 mobile-app/playwright-report/
 mobile-app/test-results/.last-run.json
+mobile-app/test-results/

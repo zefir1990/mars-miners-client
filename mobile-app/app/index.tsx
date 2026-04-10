@@ -3,7 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { getLocales } from 'expo-localization';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Clipboard, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { t } from '../src/logic/locales';
 
@@ -11,6 +11,10 @@ export default function MainMenu() {
     const router = useRouter();
     const [lang, setLang] = useState<'en' | 'ru'>('en');
     const [showTrainingRules, setShowTrainingRules] = useState(false);
+    const [showMultiplayerModal, setShowMultiplayerModal] = useState(false);
+    const [showSessionIdModal, setShowSessionIdModal] = useState(false);
+    const [generatedSessionId, setGeneratedSessionId] = useState('');
+    const [generatedUserId, setGeneratedUserId] = useState('');
 
     const startTraining = () => {
         setShowTrainingRules(false);
@@ -170,6 +174,42 @@ export default function MainMenu() {
         }
     };
 
+    const createMultiplayerGame = () => {
+        const sessionId = Math.random().toString(36).substring(2, 10);
+        const userId = Math.random().toString(36).substring(2, 10);
+        setGeneratedSessionId(sessionId);
+        setGeneratedUserId(userId);
+        setShowMultiplayerModal(false);
+        setShowSessionIdModal(true);
+    };
+
+    const proceedToGame = () => {
+        setShowSessionIdModal(false);
+        router.push({
+            pathname: '/game',
+            params: {
+                roles: JSON.stringify({ 1: 'human', 2: 'none', 3: 'none', 4: 'none' }),
+                grid_width: '10',
+                grid_height: '10',
+                weapon_req: '4',
+                mode: 'multi',
+                session_id: generatedSessionId,
+                user_id: generatedUserId,
+                create_session: 'true'
+            }
+        });
+    };
+
+    const copySessionId = () => {
+        Clipboard.setString(generatedSessionId);
+        Alert.alert(t('copy_btn', lang), generatedSessionId);
+    };
+
+    const joinMultiplayerGame = () => {
+        setShowMultiplayerModal(false);
+        router.push('/multiplayer');
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.content}>
@@ -196,7 +236,11 @@ export default function MainMenu() {
                         <Text style={styles.buttonText}>{t('load_game_btn', lang)}</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={() => router.push('/multiplayer')} style={[styles.button, styles.multiButton]}>
+                    <TouchableOpacity 
+                        onPress={() => setShowMultiplayerModal(true)} 
+                        style={[styles.button, styles.multiButton]}
+                        testID="multiplayer-button"
+                    >
                         <Text style={styles.buttonText}>{t('multiplayer', lang)}</Text>
                     </TouchableOpacity>
 
@@ -227,6 +271,73 @@ export default function MainMenu() {
                                 <Text style={styles.modalButtonText}>{t('start_training_btn', lang)}</Text>
                             </TouchableOpacity>
                         </View>
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal
+                visible={showMultiplayerModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowMultiplayerModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{t('multiplayer', lang)}</Text>
+                        <Text style={styles.modalMessage}>{lang === 'ru' ? 'Выберите режим сетевой игры' : 'Choose multiplayer mode'}</Text>
+                        
+                        <TouchableOpacity 
+                            style={[styles.modalButton, { backgroundColor: '#34c759', width: '100%', marginBottom: 15 }]} 
+                            onPress={createMultiplayerGame}
+                            testID="create-battle-button"
+                        >
+                            <Text style={styles.modalButtonText}>{t('create_session', lang)}</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={[styles.modalButton, { backgroundColor: '#007AFF', width: '100%', marginBottom: 15 }]} 
+                            onPress={joinMultiplayerGame}
+                            testID="join-battle-button"
+                        >
+                            <Text style={styles.modalButtonText}>{t('join_game_btn', lang)}</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={[styles.modalButton, styles.modalCancelButton, { width: '100%' }]} 
+                            onPress={() => setShowMultiplayerModal(false)}
+                        >
+                            <Text style={styles.modalButtonText}>{lang === 'ru' ? 'Отмена' : 'Cancel'}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal
+                visible={showSessionIdModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowSessionIdModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{lang === 'ru' ? 'Сессия создана' : 'Session Created'}</Text>
+                        <Text style={styles.modalMessage}>{t('session_id', lang)}: {generatedSessionId}</Text>
+                        
+                        <TouchableOpacity 
+                            style={[styles.modalButton, { backgroundColor: '#34c759', width: '100%', marginBottom: 15 }]} 
+                            onPress={copySessionId}
+                            testID="copy-session-button"
+                        >
+                            <Text style={styles.modalButtonText}>{t('copy_btn', lang)}</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={[styles.modalButton, { backgroundColor: '#007AFF', width: '100%' }]} 
+                            onPress={proceedToGame}
+                            testID="session-modal-ok"
+                        >
+                            <Text style={styles.modalButtonText}>{t('ok', lang)}</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
