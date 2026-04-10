@@ -380,7 +380,33 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                         resizeMode="cover"
                     />
                 )}
-                <Text style={{ color, fontSize: cellSize * 0.7, fontWeight: 'bold', opacity: 0.95 }}>{displayText}</Text>
+                {displayText !== '' && (
+                    <View
+                        style={{
+                            position: 'absolute',
+                            top: 2,
+                            right: 2,
+                            width: cellSize * 0.45,
+                            height: cellSize * 0.45,
+                            backgroundColor: 'rgba(0,0,0,0.5)',
+                            borderRadius: 4,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 5,
+                        }}
+                    >
+                        <Text
+                            style={{
+                                color,
+                                fontSize: cellSize * 0.35,
+                                fontWeight: 'bold',
+                                opacity: 0.95
+                            }}
+                        >
+                            {displayText}
+                        </Text>
+                    </View>
+                )}
                 {isWeaponPart && (
                     <View
                         style={{
