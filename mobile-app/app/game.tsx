@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Clipboard, FlatList, Image, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Clipboard, FlatList, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MarsMinersGame, PlayerId, PlayerRole } from '../src/logic/MarsMinersGame';
 import { computeAIMoveInBackground } from '../src/logic/ai/AIBackgroundService';
@@ -572,6 +572,19 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                             key={game.width}
                             scrollEnabled={false}
                         />
+                        {selectedCell && (
+                            <Pressable
+                                style={{
+                                    position: 'absolute',
+                                    width: 4000,
+                                    height: 4000,
+                                    left: -2000,
+                                    top: -2000,
+                                    backgroundColor: 'rgba(0,0,0,0.3)',
+                                }}
+                                onPress={() => setSelectedCell(null)}
+                            />
+                        )}
                         {selectedCell && (() => {
                             const idealLeft = selectedCell.c * cellSize + cellSize / 2 - popupSize.width / 2;
                             const idealTop = selectedCell.r * cellSize + cellSize / 2 - popupSize.height / 2;
@@ -580,7 +593,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                             const top = Math.max(0, Math.min(idealTop, game.height * cellSize - popupSize.height));
 
                             return (
-                                <View
+                                <Pressable
                                     style={[styles.buildOverlay, { left, top, opacity: popupSize.width > 0 ? 1 : 0 }]}
                                     onLayout={(e) => {
                                         const { width, height } = e.nativeEvent.layout;
@@ -588,6 +601,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                                             setPopupSize({ width, height });
                                         }
                                     }}
+                                    onPress={(e) => e.stopPropagation()}
                                 >
                                     <TouchableOpacity
                                         style={styles.buildOverlayBtn}
@@ -615,7 +629,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                                     >
                                         <Text style={styles.buildOverlayBtnText}>×</Text>
                                     </TouchableOpacity>
-                                </View>
+                                </Pressable>
                             );
                         })()}
                     </View>
