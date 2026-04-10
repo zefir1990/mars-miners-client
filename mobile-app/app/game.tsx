@@ -12,6 +12,11 @@ import { SingleplayerBattlelogWriter } from '../src/logic/battlelog/Singleplayer
 import { WebsocketsBattlelogWriter } from '../src/logic/battlelog/WebsocketsBattlelogWriter';
 import { t } from '../src/logic/locales';
 
+const emptyTile1 = require('../assets/images/empty_tile_1.png');
+const emptyTile2 = require('../assets/images/empty_tile_2.png');
+const emptyTiles = [emptyTile1, emptyTile2];
+const rotations = ['0deg', '90deg', '180deg', '270deg'];
+
 interface GameViewProps {
     game: MarsMinersGame;
     playfieldDelegate: PlayfieldDelegate;
@@ -317,15 +322,10 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
             const isEnemy = item !== game.players[currentTurn].st;
             bgColor = isEnemy ? '#4a2c1e' : '#504614';
         }
-        if (isAttackTarget) bgColor = '#5f1e1e';
-        if (isSelectedForSacrifice) bgColor = '#ff3b30'; // Distinct Red for sacrifice
-
         // Dead cells (destroyed stations) show as grey)
         if (item === '█') bgColor = '#646464';
 
-        if (item === '.' && isHumanTurn && game.canBuild(r, c, currentTurn)) {
-            bgColor = '#1e3a5f';
-        }
+        const canBuildHighlight = item === '.' && isHumanTurn && game.canBuild(r, c, currentTurn);
 
         // Determine text color
         let color = '#fff';
@@ -368,6 +368,24 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                 activeOpacity={0.7}
                 testID="game-cell"
             >
+                {item === '.' && (() => {
+                    const cellHash = (r * 7 + c * 13);
+                    const tileIdx = cellHash % 2;
+                    const rotationIdx = cellHash % 4;
+                    return (
+                        <Image
+                            source={emptyTiles[tileIdx]}
+                            style={{
+                                position: 'absolute',
+                                width: '100%',
+                                height: '100%',
+                                opacity: 1.0,
+                                transform: [{ rotate: rotations[rotationIdx] }]
+                            }}
+                            resizeMode="cover"
+                        />
+                    );
+                })()}
                 {isBase && (
                     <Image
                         source={require('../assets/images/base_tile.png')}
@@ -387,6 +405,19 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                         source={require('../assets/images/crater_tile.png')}
                         style={{ position: 'absolute', width: '100%', height: '100%', opacity: 1.0 }}
                         resizeMode="cover"
+                    />
+                )}
+                {canBuildHighlight && (
+                    <View
+                        style={{
+                            position: 'absolute',
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: 'rgba(30, 58, 95, 0.6)',
+                            borderColor: '#1e3a5f',
+                            borderWidth: 1,
+                        }}
+                        pointerEvents="none"
                     />
                 )}
                 {displayText !== '' && (
@@ -426,7 +457,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                             position: 'absolute',
                             width: '100%',
                             height: '100%',
-                            backgroundColor: (item !== game.players[currentTurn].st) ? 'rgba(255, 100, 0, 0.2)' : 'rgba(255, 255, 0, 0.2)',
+                            backgroundColor: (item !== game.players[currentTurn].st) ? 'rgba(255, 100, 0, 0.4)' : 'rgba(255, 255, 0, 0.4)',
                             borderColor: (item !== game.players[currentTurn].st) ? '#ff6400' : '#ffff00',
                             borderWidth: 2,
                         }}
