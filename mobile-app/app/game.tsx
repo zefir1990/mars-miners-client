@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Clipboard, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Clipboard, FlatList, Image, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MarsMinersGame, PlayerId, PlayerRole } from '../src/logic/MarsMinersGame';
 import { computeAIMoveInBackground } from '../src/logic/ai/AIBackgroundService';
@@ -343,6 +343,14 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
         // Don't show symbol for dead cells or empty cells
         const displayText = (item === '.' || item === '█') ? '' : item;
 
+        const isBase = item === 'X' || (() => {
+            for (let pidStr in game.players) {
+                const p = game.players[parseInt(pidStr) as PlayerId];
+                if (item === p.st) return true;
+            }
+            return false;
+        })();
+
         return (
             <TouchableOpacity
                 style={[styles.cell, { width: cellSize, height: cellSize, backgroundColor: bgColor }]}
@@ -350,7 +358,54 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                 activeOpacity={0.7}
                 testID="game-cell"
             >
-                <Text style={{ color, fontSize: cellSize * 0.7, fontWeight: 'bold' }}>{displayText}</Text>
+                {isBase && (
+                    <Image
+                        source={require('../assets/images/base_tile.png')}
+                        style={{ position: 'absolute', width: '100%', height: '100%', opacity: 1.0 }}
+                        resizeMode="cover"
+                    />
+                )}
+                <Text style={{ color, fontSize: cellSize * 0.7, fontWeight: 'bold', opacity: 0.95 }}>{displayText}</Text>
+                {isWeaponPart && (
+                    <View
+                        style={{
+                            position: 'absolute',
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: (item !== game.players[currentTurn].st) ? 'rgba(255, 100, 0, 0.2)' : 'rgba(255, 255, 0, 0.2)',
+                            borderColor: (item !== game.players[currentTurn].st) ? '#ff6400' : '#ffff00',
+                            borderWidth: 2,
+                        }}
+                        pointerEvents="none"
+                    />
+                )}
+                {isSelectedForSacrifice && (
+                    <View
+                        style={{
+                            position: 'absolute',
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: 'rgba(255, 59, 48, 0.4)',
+                            borderColor: '#ff3b30',
+                            borderWidth: 3,
+                        }}
+                        pointerEvents="none"
+                    />
+                )}
+                {isAttackTarget && (
+                    <View
+                        style={{
+                            position: 'absolute',
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: 'rgba(95, 30, 30, 0.5)',
+                            borderColor: '#ff0000',
+                            borderWidth: 2,
+                            borderStyle: 'dashed',
+                        }}
+                        pointerEvents="none"
+                    />
+                )}
             </TouchableOpacity>
         );
     };
