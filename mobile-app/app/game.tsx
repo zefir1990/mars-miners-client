@@ -3,6 +3,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Clipboard, FlatList, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Reanimated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MarsMinersGame, PlayerId, PlayerRole } from '../src/logic/MarsMinersGame';
 import { computeAIMoveInBackground } from '../src/logic/ai/AIBackgroundService';
@@ -63,6 +66,62 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
     const [isIndicatorVisible, setIsIndicatorVisible] = useState(false);
     const aiOpacity = useRef(new Animated.Value(0)).current;
     const [replayIdx, setReplayIdx] = useState(0);
+
+    // Zoom and Pan state
+    const scale = useSharedValue(1);
+    const savedScale = useSharedValue(1);
+    const translateX = useSharedValue(0);
+    const translateY = useSharedValue(0);
+    const savedTranslateX = useSharedValue(0);
+    const savedTranslateY = useSharedValue(0);
+
+    const pinchGesture = Gesture.Pinch()
+        .onUpdate((e) => {
+            const newScale = savedScale.value * e.scale;
+            scale.value = Math.min(Math.max(newScale, 0.75), 8);
+        })
+        .onEnd(() => {
+            savedScale.value = scale.value;
+        });
+
+    const panGesture = Gesture.Pan()
+        .minPointers(1)
+        .onUpdate((e) => {
+            translateX.value = savedTranslateX.value + e.translationX;
+            translateY.value = savedTranslateY.value + e.translationY;
+        })
+        .onEnd(() => {
+            savedTranslateX.value = translateX.value;
+            savedTranslateY.value = translateY.value;
+        });
+
+    const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [
+            { translateX: translateX.value },
+            { translateY: translateY.value },
+            { scale: scale.value }
+        ]
+    }));
+
+    const gridRef = useRef<View>(null);
+
+    useEffect(() => {
+        if (Platform.OS === 'web' && gridRef.current) {
+            const el = gridRef.current as any;
+            const handleWheel = (e: WheelEvent) => {
+                e.preventDefault();
+                const delta = e.deltaY;
+                const scaleChange = delta > 0 ? 0.9 : 1.1;
+                const newScale = Math.min(Math.max(scale.value * scaleChange, 0.75), 8);
+                scale.value = withSpring(newScale, { damping: 20, stiffness: 200 });
+                savedScale.value = newScale;
+            };
+            el.addEventListener('wheel', handleWheel, { passive: false });
+            return () => el.removeEventListener('wheel', handleWheel);
+        }
+    }, []);
 
     // Battlelog Playback
     useEffect(() => {
@@ -555,85 +614,89 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.gridContainer} onLayout={onLayout}>
+            <View style={styles.gridContainer} onLayout={onLayout} ref={gridRef as any}>
                 {isIndicatorVisible && (
                     <Animated.View style={[styles.aiThinkingOverlay, { opacity: aiOpacity }]}>
                         <ActivityIndicator size="large" color="#ffffff" />
                         <Text style={styles.aiThinkingText}>{t('ai_thinking', 'en')}</Text>
                     </Animated.View>
                 )}
-                {cellSize > 0 && (
-                    <View style={{ width: cellSize * game.width, height: cellSize * game.height }}>
-                        <FlatList
-                            data={flatGrid}
-                            renderItem={renderCell}
-                            keyExtractor={(_, i) => i.toString()}
-                            numColumns={game.width}
-                            key={game.width}
-                            scrollEnabled={false}
-                        />
-                        {selectedCell && (
-                            <Pressable
-                                style={{
-                                    position: 'absolute',
-                                    width: 4000,
-                                    height: 4000,
-                                    left: -2000,
-                                    top: -2000,
-                                    backgroundColor: 'rgba(0,0,0,0.3)',
-                                }}
-                                onPress={() => setSelectedCell(null)}
-                            />
-                        )}
-                        {selectedCell && (() => {
-                            const idealLeft = selectedCell.c * cellSize + cellSize / 2 - popupSize.width / 2;
-                            const idealTop = selectedCell.r * cellSize + cellSize / 2 - popupSize.height / 2;
-
-                            const left = Math.max(0, Math.min(idealLeft, game.width * cellSize - popupSize.width));
-                            const top = Math.max(0, Math.min(idealTop, game.height * cellSize - popupSize.height));
-
-                            return (
-                                <Pressable
-                                    style={[styles.buildOverlay, { left, top, opacity: popupSize.width > 0 ? 1 : 0 }]}
-                                    onLayout={(e) => {
-                                        const { width, height } = e.nativeEvent.layout;
-                                        if (width !== popupSize.width || height !== popupSize.height) {
-                                            setPopupSize({ width, height });
-                                        }
-                                    }}
-                                    onPress={(e) => e.stopPropagation()}
-                                >
-                                    <TouchableOpacity
-                                        style={styles.buildOverlayBtn}
-                                        onPress={() => {
-                                            playfieldDelegate.buildStation(selectedCell.r, selectedCell.c);
-                                            setSelectedCell(null);
-                                            forceUpdate();
+                <GestureDetector gesture={composedGesture}>
+                    <Reanimated.View style={[{ alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
+                        {cellSize > 0 && (
+                            <View style={{ width: cellSize * game.width, height: cellSize * game.height }}>
+                                <FlatList
+                                    data={flatGrid}
+                                    renderItem={renderCell}
+                                    keyExtractor={(_, i) => i.toString()}
+                                    numColumns={game.width}
+                                    key={game.width}
+                                    scrollEnabled={false}
+                                />
+                                {selectedCell && (
+                                    <Pressable
+                                        style={{
+                                            position: 'absolute',
+                                            width: 4000,
+                                            height: 4000,
+                                            left: -2000,
+                                            top: -2000,
+                                            backgroundColor: 'rgba(0,0,0,0.3)',
                                         }}
-                                    >
-                                        <Text style={styles.buildOverlayBtnText}>{t('base_btn', 'en')}</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.buildOverlayBtn, { backgroundColor: '#e67e22' }]}
-                                        onPress={() => {
-                                            playfieldDelegate.buildMine(selectedCell.r, selectedCell.c);
-                                            setSelectedCell(null);
-                                            forceUpdate();
-                                        }}
-                                    >
-                                        <Text style={styles.buildOverlayBtnText}>{t('mine_btn', 'en')}</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.buildOverlayBtn, { backgroundColor: '#444' }]}
                                         onPress={() => setSelectedCell(null)}
-                                    >
-                                        <Text style={styles.buildOverlayBtnText}>×</Text>
-                                    </TouchableOpacity>
-                                </Pressable>
-                            );
-                        })()}
-                    </View>
-                )}
+                                    />
+                                )}
+                                {selectedCell && (() => {
+                                    const idealLeft = selectedCell.c * cellSize + cellSize / 2 - popupSize.width / 2;
+                                    const idealTop = selectedCell.r * cellSize + cellSize / 2 - popupSize.height / 2;
+
+                                    const left = Math.max(0, Math.min(idealLeft, game.width * cellSize - popupSize.width));
+                                    const top = Math.max(0, Math.min(idealTop, game.height * cellSize - popupSize.height));
+
+                                    return (
+                                        <Pressable
+                                            style={[styles.buildOverlay, { left, top, opacity: popupSize.width > 0 ? 1 : 0 }]}
+                                            onLayout={(e) => {
+                                                const { width, height } = e.nativeEvent.layout;
+                                                if (width !== popupSize.width || height !== popupSize.height) {
+                                                    setPopupSize({ width, height });
+                                                }
+                                            }}
+                                            onPress={(e) => e.stopPropagation()}
+                                        >
+                                            <TouchableOpacity
+                                                style={styles.buildOverlayBtn}
+                                                onPress={() => {
+                                                    playfieldDelegate.buildStation(selectedCell.r, selectedCell.c);
+                                                    setSelectedCell(null);
+                                                    forceUpdate();
+                                                }}
+                                            >
+                                                <Text style={styles.buildOverlayBtnText}>{t('base_btn', 'en')}</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[styles.buildOverlayBtn, { backgroundColor: '#e67e22' }]}
+                                                onPress={() => {
+                                                    playfieldDelegate.buildMine(selectedCell.r, selectedCell.c);
+                                                    setSelectedCell(null);
+                                                    forceUpdate();
+                                                }}
+                                            >
+                                                <Text style={styles.buildOverlayBtnText}>{t('mine_btn', 'en')}</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[styles.buildOverlayBtn, { backgroundColor: '#444' }]}
+                                                onPress={() => setSelectedCell(null)}
+                                            >
+                                                <Text style={styles.buildOverlayBtnText}>×</Text>
+                                            </TouchableOpacity>
+                                        </Pressable>
+                                    );
+                                })()}
+                            </View>
+                        )}
+                    </Reanimated.View>
+                </GestureDetector>
             </View>
 
             {showLog && (
@@ -846,7 +909,7 @@ function thisIsAI(role: PlayerRole): boolean {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#121212' },
-    header: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingHorizontal: 10, height: 70, borderBottomWidth: 1, borderBottomColor: '#333' },
+    header: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50, backgroundColor: 'rgba(18, 18, 18, 0.8)', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, height: 70, borderBottomWidth: 1, borderBottomColor: 'rgba(51, 51, 51, 0.8)' },
     backBtn: { padding: 10 },
     logToggle: { padding: 10, width: 50, alignItems: 'center' },
     btnText: { color: '#fff', fontSize: 24 },
