@@ -386,8 +386,8 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                             position: 'absolute',
                             top: 2,
                             right: 2,
-                            width: cellSize * 0.45,
-                            height: cellSize * 0.45,
+                            width: cellSize * 0.5,
+                            height: cellSize * 0.5,
                             backgroundColor: 'rgba(0,0,0,0.5)',
                             borderRadius: 4,
                             alignItems: 'center',
@@ -398,7 +398,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                         <Text
                             style={{
                                 color,
-                                fontSize: cellSize * 0.35,
+                                fontSize: cellSize * 0.4,
                                 fontWeight: 'bold',
                                 opacity: 0.95
                             }}

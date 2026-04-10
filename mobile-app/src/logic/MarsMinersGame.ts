@@ -60,9 +60,9 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
         this.playerIds = { 1: '', 2: '', 3: '', 4: '' };
 
         this.players = {
-            1: { st: '↑', mi: '○', name: t('player_1', 'en'), pos: [1, 1], color: '#FF6464' },
+            1: { st: '↑', mi: '○', name: t('player_1', 'en'), pos: [1, 1], color: '#FF0000' },
             2: { st: '↓', mi: '△', name: t('player_2', 'en'), pos: [this.height - 2, this.width - 2], color: '#64FF64' },
-            3: { st: '←', mi: '□', name: t('player_3', 'en'), pos: [1, this.width - 2], color: '#6464FF' },
+            3: { st: '←', mi: '□', name: t('player_3', 'en'), pos: [1, this.width - 2], color: '#00DFFF' },
             4: { st: '→', mi: '◇', name: t('player_4', 'en'), pos: [this.height - 2, 1], color: '#FFC832' }
         };
 
