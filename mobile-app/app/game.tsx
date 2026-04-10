@@ -20,9 +20,11 @@ interface GameViewProps {
     sessionId?: string;
     userId?: string;
     connectionStatus?: string;
+    isReplayMode?: boolean;
+    initialLog?: string[];
 }
 
-function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId, userId, connectionStatus }: GameViewProps) {
+function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId, userId, connectionStatus, isReplayMode, initialLog }: GameViewProps) {
     const router = useRouter();
     console.log('GameView Roles:', game.roles);
     // Capture state for Effect dependencies and Render
@@ -54,12 +56,32 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
     const [pendingSacrifice, setPendingSacrifice] = useState<[number, number] | null>(null);
     const [showGameOverModal, setShowGameOverModal] = useState(false);
     const [isAIThinking, setIsAIThinking] = useState(false);
+    const [replayIdx, setReplayIdx] = useState(0);
+
+    // Battlelog Playback
+    useEffect(() => {
+        if (isReplayMode && initialLog && replayIdx < initialLog.length) {
+            const timer = setTimeout(() => {
+                const command = initialLog[replayIdx];
+                // Skip setup commands as they were likely applied during init or should be applied instantly
+                if (command.startsWith('SIZE') || command.startsWith('WEAPON_REQ') || command.startsWith('JOIN')) {
+                    // Just skip, but we move to next
+                    setReplayIdx(idx => idx + 1);
+                } else {
+                    game.applyCommand(command);
+                    setReplayIdx(idx => idx + 1);
+                    forceUpdate();
+                }
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [isReplayMode, replayIdx, initialLog]);
 
     // AI Loop
     useEffect(() => {
         let cancelled = false;
         setIsAIThinking(false);
-        if (!isGameOver && thisIsAI(turnRole)) {
+        if (!isGameOver && thisIsAI(turnRole) && !isReplayMode) {
             const timer = setTimeout(() => {
                 const requestId = ++aiRequestSeqRef.current;
                 setPendingSacrifice(null);
@@ -179,6 +201,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
 
     // Cell Interaction
     const handleCellPress = (r: number, c: number) => {
+        if (isReplayMode) return;
         console.log(`Cell press: ${r}, ${c}. Turn: ${currentTurn}, Role: ${turnRole}, MyID: ${myPlayerId}, H: ${isHumanTurn}, GO: ${isGameOver}`);
         if (!isHumanTurn) return;
 
@@ -337,6 +360,9 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
         }
         if (connectionStatus) {
             statusText += `\n[${connectionStatus}]`;
+        }
+        if (isReplayMode) {
+            statusText = `${t('replaying_status', 'en')}\n${statusText}`;
         }
     }
 
@@ -563,16 +589,27 @@ export default function GameScreen() {
                 if (params.restore_state) {
                     try {
                         const parsed = JSON.parse(params.restore_state as string);
-                        if (parsed.battleLog) {
-                            gameRef.current.replayLog(parsed.battleLog);
+                        const logLines = parsed.battleLog || (typeof params.restore_state === 'string' ? (params.restore_state as string).split('\n').filter(l => l.trim().length > 0) : []);
+                        
+                        if (params.mode === 'replay') {
+                            // Only apply setup commands instantly
+                            const setupLines = logLines.filter((l: string) => l.startsWith('WEAPON_REQ') || l.startsWith('JOIN') || l.startsWith('SIZE'));
+                            gameRef.current.replayLog(setupLines);
                         } else {
-                            // Fallback to old dict format
-                            gameRef.current.fromDict(parsed);
+                            if (parsed.battleLog) {
+                                gameRef.current.replayLog(parsed.battleLog);
+                            } else {
+                                gameRef.current.fromDict(parsed);
+                            }
                         }
                     } catch (e) {
-                        // Raw text log
                         const lines = (params.restore_state as string).split('\n').filter(l => l.trim().length > 0);
-                        gameRef.current.replayLog(lines);
+                        if (params.mode === 'replay') {
+                            const setupLines = lines.filter(l => l.startsWith('WEAPON_REQ') || l.startsWith('JOIN') || l.startsWith('SIZE'));
+                            gameRef.current.replayLog(setupLines);
+                        } else {
+                            gameRef.current.replayLog(lines);
+                        }
                     }
                 }
 
@@ -602,6 +639,15 @@ export default function GameScreen() {
         );
     }
 
+    const initialLogLines = params.restore_state ? (() => {
+        try {
+            const parsed = JSON.parse(params.restore_state as string);
+            return parsed.battleLog || [];
+        } catch (e) {
+            return (params.restore_state as string).split('\n').filter(l => l.trim().length > 0);
+        }
+    })() : [];
+
     return (
         <GameView
             game={gameRef.current}
@@ -611,6 +657,8 @@ export default function GameScreen() {
             sessionId={params.session_id as string}
             userId={params.user_id as string}
             connectionStatus={connectionStatus}
+            isReplayMode={params.mode === 'replay'}
+            initialLog={initialLogLines}
         />
     );
 }

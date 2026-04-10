@@ -103,6 +103,73 @@ export default function MainMenu() {
         }
     };
 
+    const playBattlelog = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/json', 'text/plain'],
+                copyToCacheDirectory: true
+            });
+
+            if (result.canceled) return;
+
+            let fileContent: string;
+            if (Platform.OS === 'web') {
+                const response = await fetch(result.assets[0].uri);
+                fileContent = await response.text();
+            } else {
+                fileContent = await FileSystem.readAsStringAsync(result.assets[0].uri);
+            }
+
+            const lines = fileContent.split('\n').filter(l => l.trim().length > 0);
+            const weaponLine = lines.find(l => l.startsWith('WEAPON_REQ '));
+            const joinLines = lines.filter(l => l.startsWith('JOIN '));
+
+            if (joinLines.length === 0) {
+                try {
+                    // Try to parse as old JSON format if it's not a text log
+                    const state = JSON.parse(fileContent);
+                    if (state.roles) {
+                        router.push({
+                            pathname: '/game',
+                            params: {
+                                roles: JSON.stringify(state.roles),
+                                grid_width: '10',
+                                grid_height: '10',
+                                weapon_req: (state.weapon_req || 4).toString(),
+                                restore_state: fileContent,
+                                mode: 'replay'
+                            }
+                        });
+                        return;
+                    }
+                } catch (e) {
+                    throw new Error("Invalid log file");
+                }
+            }
+
+            const weaponReq = parseInt(weaponLine ? weaponLine.split(' ')[1] : '4') || 4;
+            const roles: Record<number, string> = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
+            joinLines.forEach((l, i) => {
+                roles[i + 1] = l.split(' ')[1];
+            });
+
+            router.push({
+                pathname: '/game',
+                params: {
+                    roles: JSON.stringify(roles),
+                    grid_width: '10',
+                    grid_height: '10',
+                    weapon_req: weaponReq.toString(),
+                    restore_state: JSON.stringify({ battleLog: lines }),
+                    mode: 'replay'
+                }
+            });
+        } catch (e) {
+            console.error("Failed to load battle record", e);
+            Alert.alert("Error", "Failed to load battle record");
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.content}>
@@ -123,6 +190,10 @@ export default function MainMenu() {
 
                     <TouchableOpacity onPress={() => router.push('/multiplayer')} style={[styles.button, styles.multiButton]}>
                         <Text style={styles.buttonText}>{t('multiplayer', lang)}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={playBattlelog} style={[styles.button, { backgroundColor: '#5856d6' }]}>
+                        <Text style={styles.buttonText}>{t('battlelog_player_btn', lang)}</Text>
                     </TouchableOpacity>
                 </View>
             </View>

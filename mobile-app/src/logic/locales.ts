@@ -46,6 +46,8 @@ export const LOCALE = {
         'abandon_title': "Abandon Mission", 'exit_msg': "Exit game?", 'exit_title': "Exit",
         'lang_label': "Language / Язык:",
         'highlight_weapon': "Highlight weapons",
+        'battlelog_player_btn': "Battlelog Player",
+        'replaying_status': "REPLAYING...",
     },
     'ru': {
         'build_mode': "РЕЖИМ СТРОЙКИ:",
@@ -94,6 +96,8 @@ export const LOCALE = {
         'exit_msg': "Выйти?", 'exit_title': "Выход",
         'lang_label': "Язык:",
         'highlight_weapon': "Подсветка орудий",
+        'battlelog_player_btn': "Проигрыватель лога",
+        'replaying_status': "ВОСПРОИЗВЕДЕНИЕ...",
     }
 };
 
