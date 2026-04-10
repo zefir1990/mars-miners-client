@@ -359,6 +359,8 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
             return false;
         })();
 
+        const isDestroyed = item === '█';
+
         return (
             <TouchableOpacity
                 style={[styles.cell, { width: cellSize, height: cellSize, backgroundColor: bgColor }]}
@@ -376,6 +378,13 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                 {isMine && (
                     <Image
                         source={require('../assets/images/mine_tile.png')}
+                        style={{ position: 'absolute', width: '100%', height: '100%', opacity: 1.0 }}
+                        resizeMode="cover"
+                    />
+                )}
+                {isDestroyed && (
+                    <Image
+                        source={require('../assets/images/crater_tile.png')}
                         style={{ position: 'absolute', width: '100%', height: '100%', opacity: 1.0 }}
                         resizeMode="cover"
                     />
