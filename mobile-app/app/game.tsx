@@ -255,7 +255,6 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
     // Handle modal OK button
     const handleModalOk = () => {
         setShowGameOverModal(false);
-        onBack();
     };
 
     const [layout, setLayout] = useState({ width: 0, height: 0 });
