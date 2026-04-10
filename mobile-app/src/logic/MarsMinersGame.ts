@@ -162,11 +162,14 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
             // Find next pid
             let pid: PlayerId = 0 as PlayerId;
             // 1. Try to find slot with SAME role but empty ID (claiming pre-filled slot)
-            for (let i = 1; i <= 4; i++) {
-                const id = i as PlayerId;
-                if (this.roles[id] === role && !this.playerIds[id]) {
-                    pid = id;
-                    break;
+            // Only do this if a userId is provided, otherwise we might overwrite another player of the same role
+            if (userId !== "") {
+                for (let i = 1; i <= 4; i++) {
+                    const id = i as PlayerId;
+                    if (this.roles[id] === role && !this.playerIds[id]) {
+                        pid = id;
+                        break;
+                    }
                 }
             }
             // 2. If no matching pre-filled slot, find an empty slot

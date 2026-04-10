@@ -47,7 +47,8 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
     const myPlayerId = userId ? game.getPlayerId(userId) : null;
     const isHumanTurn = !isGameOver && turnRole === 'human' && (!sessionId || currentTurn === myPlayerId);
 
-    const [buildMode, setBuildMode] = useState<'st' | 'mi'>('st');
+    const [selectedCell, setSelectedCell] = useState<{ r: number, c: number } | null>(null);
+    const [popupSize, setPopupSize] = useState({ width: 0, height: 0 });
     const [highlight, setHighlight] = useState(game.highlight_weapon);
     const [pendingSacrifice, setPendingSacrifice] = useState<[number, number] | null>(null);
     const [showGameOverModal, setShowGameOverModal] = useState(false);
@@ -160,12 +161,12 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                 if (await Sharing.isAvailableAsync()) {
                     await Sharing.shareAsync(fileUri);
                 } else {
-                    Alert.alert("Error", "Sharing is not available on this platform");
+                    Alert.alert(t('error', 'en'), t('sharing_not_available', 'en'));
                 }
             }
         } catch (e) {
             console.error("Failed to save log", e);
-            Alert.alert("Error", "Failed to export battle log");
+            Alert.alert(t('error', 'en'), t('save_fail', 'en'));
         }
     };
 
@@ -214,14 +215,16 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
             }
         } else if (cell === '.') {
             if (game.canBuild(r, c, currentTurn)) {
-                if (buildMode === 'st') {
-                    playfieldDelegate.buildStation(r, c);
+                if (selectedCell && selectedCell.r === r && selectedCell.c === c) {
+                    setSelectedCell(null);
                 } else {
-                    playfieldDelegate.buildMine(r, c);
+                    setSelectedCell({ r, c });
                 }
                 setPendingSacrifice(null);
                 forceUpdate();
             }
+        } else {
+            setSelectedCell(null);
         }
     };
 
@@ -373,6 +376,52 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                             key={game.width}
                             scrollEnabled={false}
                         />
+                        {selectedCell && (() => {
+                            const idealLeft = selectedCell.c * cellSize + cellSize / 2 - popupSize.width / 2;
+                            const idealTop = selectedCell.r * cellSize + cellSize / 2 - popupSize.height / 2;
+
+                            const left = Math.max(0, Math.min(idealLeft, game.width * cellSize - popupSize.width));
+                            const top = Math.max(0, Math.min(idealTop, game.height * cellSize - popupSize.height));
+
+                            return (
+                                <View
+                                    style={[styles.buildOverlay, { left, top }]}
+                                    onLayout={(e) => {
+                                        const { width, height } = e.nativeEvent.layout;
+                                        if (width !== popupSize.width || height !== popupSize.height) {
+                                            setPopupSize({ width, height });
+                                        }
+                                    }}
+                                >
+                                    <TouchableOpacity
+                                        style={styles.buildOverlayBtn}
+                                        onPress={() => {
+                                            playfieldDelegate.buildStation(selectedCell.r, selectedCell.c);
+                                            setSelectedCell(null);
+                                            forceUpdate();
+                                        }}
+                                    >
+                                        <Text style={styles.buildOverlayBtnText}>{t('base_btn', 'en')}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.buildOverlayBtn, { backgroundColor: '#e67e22' }]}
+                                        onPress={() => {
+                                            playfieldDelegate.buildMine(selectedCell.r, selectedCell.c);
+                                            setSelectedCell(null);
+                                            forceUpdate();
+                                        }}
+                                    >
+                                        <Text style={styles.buildOverlayBtnText}>{t('mine_btn', 'en')}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.buildOverlayBtn, { backgroundColor: '#444' }]}
+                                        onPress={() => setSelectedCell(null)}
+                                    >
+                                        <Text style={styles.buildOverlayBtnText}>×</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            );
+                        })()}
                     </View>
                 )}
             </View>
@@ -392,22 +441,6 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
             </View>
 
             <View style={styles.bottomBar}>
-                <TouchableOpacity
-                    style={[styles.bottomBtn, buildMode === 'st' ? styles.activeBtn : {}]}
-                    onPress={() => setBuildMode('st')}
-                    disabled={!isHumanTurn}
-                >
-                    <Text style={styles.btnLabel}>{t('station_btn', 'en')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.bottomBtn, buildMode === 'mi' ? styles.activeBtn : {}]}
-                    onPress={() => setBuildMode('mi')}
-                    disabled={!isHumanTurn}
-                >
-                    <Text style={styles.btnLabel}>{t('mine_btn', 'en')}</Text>
-                </TouchableOpacity>
-
                 {sessionId && (
                     <TouchableOpacity
                         style={[styles.bottomBtn, { backgroundColor: '#8e44ad' }]}
@@ -436,7 +469,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                         <Text style={styles.modalTitle}>{t('game_over', 'en')}</Text>
                         <Text style={styles.modalMessage}>{statusText}</Text>
                         <TouchableOpacity style={styles.modalButton} onPress={handleModalOk}>
-                            <Text style={styles.modalButtonText}>OK</Text>
+                            <Text style={styles.modalButtonText}>{t('ok', 'en')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -591,6 +624,34 @@ const styles = StyleSheet.create({
     activeBtn: { backgroundColor: '#007AFF' },
     saveButtonUI: { backgroundColor: '#34c759' },
     btnLabel: { color: '#fff', fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
+
+    buildOverlay: {
+        position: 'absolute',
+        flexDirection: 'row',
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        padding: 8,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 100,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    buildOverlayBtn: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 10,
+        marginHorizontal: 5,
+    },
+    buildOverlayBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
 
     logContainer: {
         height: 100,
