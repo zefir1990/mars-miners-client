@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { createWorkletRuntime, runOnJS, runOnRuntime, type WorkletRuntime } from 'react-native-worklets';
-import type { MarsMinersGame, PlayerId, PlayerRole, AIMove, Player } from '../MarsMinersGame';
+import type { MarsMinersGame, PlayerId, PlayerRole, Player } from '../MarsMinersGame';
 import type { AIThinkResult } from './AIPlayer';
 import { createAIPlayer } from './createAIPlayer';
 
@@ -289,6 +289,7 @@ function getWebAIWorker(): any | null {
 
 function computeMove(snapshot: GameSnapshot, role: AITurnRole, maxThinkTimeMs: number): AIThinkResult {
     const emptyRoles: Record<PlayerId, PlayerRole> = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const game = new (require('../MarsMinersGame').MarsMinersGame)(emptyRoles, snapshot.weapon_req);
     game.width = snapshot.width;
     game.height = snapshot.height;
@@ -352,7 +353,7 @@ export async function computeAIMoveInBackground(
                         runOnJS(deliverError)(rId, error instanceof Error ? error.message : 'AI failed');
                     }
                 })(requestId, snapshot, role, maxThinkTimeMs);
-            } catch (error) { pending.delete(requestId); resolve(computeMove(snapshot, role, maxThinkTimeMs)); }
+            } catch { pending.delete(requestId); resolve(computeMove(snapshot, role, maxThinkTimeMs)); }
         }),
         serviceTimeoutMs,
         () => { pending.delete(requestId); },

@@ -76,7 +76,7 @@ export default function MainMenu() {
                         }
                     });
                     return;
-                } catch (e) {
+                } catch {
                     throw new Error("Invalid log file: Missing standard configurations");
                 }
             }
@@ -142,7 +142,7 @@ export default function MainMenu() {
                         });
                         return;
                     }
-                } catch (e) {
+                } catch {
                     throw new Error("Invalid log file");
                 }
             }
@@ -176,11 +176,19 @@ export default function MainMenu() {
                 <Text style={styles.title}>MARS MINERS</Text>
 
                 <View style={styles.buttonContainer}>
-                    <TouchableOpacity onPress={() => setShowTrainingRules(true)} style={[styles.button, styles.trainingButton]}>
+                    <TouchableOpacity 
+                        onPress={() => setShowTrainingRules(true)} 
+                        style={[styles.button, styles.trainingButton]}
+                        testID="training-button"
+                    >
                         <Text style={styles.buttonText}>{t('training_btn', lang)}</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={startNewGame} style={styles.button}>
+                    <TouchableOpacity 
+                        onPress={startNewGame} 
+                        style={styles.button}
+                        testID="new-game-button"
+                    >
                         <Text style={styles.buttonText}>{t('new_game_btn', lang) || "New Game"}</Text>
                     </TouchableOpacity>
 
@@ -211,7 +219,11 @@ export default function MainMenu() {
                             <TouchableOpacity style={[styles.modalButton, styles.modalCancelButton]} onPress={() => setShowTrainingRules(false)}>
                                 <Text style={styles.modalButtonText}>{lang === 'ru' ? 'Отмена' : 'Cancel'}</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalButton} onPress={startTraining}>
+                            <TouchableOpacity 
+                                style={styles.modalButton} 
+                                onPress={startTraining}
+                                testID="start-training-confirm"
+                            >
                                 <Text style={styles.modalButtonText}>{t('start_training_btn', lang)}</Text>
                             </TouchableOpacity>
                         </View>

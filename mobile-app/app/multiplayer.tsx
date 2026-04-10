@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getLocales } from 'expo-localization';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -25,7 +24,6 @@ export default function MultiplayerScreen() {
     useEffect(() => {
         setUserId(generateId());
     }, []);
-    const [loaded, setLoaded] = useState(true);
 
     const startGame = (isCreate: boolean, idOverride?: string) => {
         const targetId = idOverride || sessionId;
@@ -55,8 +53,6 @@ export default function MultiplayerScreen() {
     const handleBack = () => {
         router.back();
     };
-
-    if (!loaded) return null;
 
     return (
         <SafeAreaView style={styles.container}>

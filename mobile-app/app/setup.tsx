@@ -7,6 +7,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlayerId, PlayerRole } from '../src/logic/MarsMinersGame';
 import { t } from '../src/logic/locales';
 
+const normalizeRole = (role: string): PlayerRole => {
+    switch (role) {
+        case 'easy_ai':
+        case 'normal_ai':
+        case 'hard_ai':
+        case 'human':
+        case 'none':
+            return role;
+        case 'ai':
+            return 'easy_ai';
+        case 'warrior_ai':
+            return 'hard_ai';
+        default:
+            return 'none';
+    }
+};
+
+const normalizeRoles = (input: Record<string, string>): Record<PlayerId, PlayerRole> => ({
+    1: normalizeRole(input[1] ?? input['1'] ?? 'human'),
+    2: normalizeRole(input[2] ?? input['2'] ?? 'normal_ai'),
+    3: normalizeRole(input[3] ?? input['3'] ?? 'none'),
+    4: normalizeRole(input[4] ?? input['4'] ?? 'none'),
+});
+
 export default function SetupScreen() {
     const router = useRouter();
     const [lang, setLang] = useState<'en' | 'ru'>('en');
@@ -21,35 +45,12 @@ export default function SetupScreen() {
             document.title = 'Mars Miners - Setup';
         }
     }, []);
+
     const [roles, setRoles] = useState<Record<PlayerId, PlayerRole>>({
         1: 'human', 2: 'normal_ai', 3: 'none', 4: 'none'
     });
     const [weaponReq, setWeaponReq] = useState(4);
     const [loaded, setLoaded] = useState(false);
-
-    const normalizeRole = (role: string): PlayerRole => {
-        switch (role) {
-            case 'easy_ai':
-            case 'normal_ai':
-            case 'hard_ai':
-            case 'human':
-            case 'none':
-                return role;
-            case 'ai':
-                return 'easy_ai';
-            case 'warrior_ai':
-                return 'hard_ai';
-            default:
-                return 'none';
-        }
-    };
-
-    const normalizeRoles = (input: Record<string, string>): Record<PlayerId, PlayerRole> => ({
-        1: normalizeRole(input[1] ?? input['1'] ?? 'human'),
-        2: normalizeRole(input[2] ?? input['2'] ?? 'normal_ai'),
-        3: normalizeRole(input[3] ?? input['3'] ?? 'none'),
-        4: normalizeRole(input[4] ?? input['4'] ?? 'none'),
-    });
 
     const cycleRole = (pid: PlayerId) => {
         const opts: PlayerRole[] = ['human', 'easy_ai', 'normal_ai', 'hard_ai', 'none'];
@@ -129,7 +130,11 @@ export default function SetupScreen() {
                         <View key={pid} style={styles.playerCard}>
                             <View style={styles.row}>
                                 <Text style={styles.label}>{t('player', lang)} {pid}:</Text>
-                                <TouchableOpacity onPress={() => cycleRole(pid)} style={[styles.button, styles.roleButton]}>
+                                <TouchableOpacity 
+                                    onPress={() => cycleRole(pid)} 
+                                    style={[styles.button, styles.roleButton]}
+                                    testID={`role-button-${pid}`}
+                                >
                                     <Text style={styles.buttonText}>{roleLabel}</Text>
                                 </TouchableOpacity>
                             </View>
@@ -148,7 +153,11 @@ export default function SetupScreen() {
 
                 <View style={styles.spacer} />
 
-                <TouchableOpacity onPress={startGame} style={styles.startButton}>
+                <TouchableOpacity 
+                    onPress={startGame} 
+                    style={styles.startButton}
+                    testID="start-game-button"
+                >
                     <Text style={styles.startButtonText}>{t('start_btn', lang)}</Text>
                 </TouchableOpacity>
             </ScrollView>

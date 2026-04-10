@@ -138,7 +138,6 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
 
         // Calculate valid turn if we are at start or stuck on invalid player
         if (activePlayers > 0 && !this.game_over) {
-            const startTurn = this.turn;
             let moves = 0; // Safety break
             while ((this.roles[this.turn] === 'none' || this.player_lost[this.turn]) && moves < 4) {
                 this.turn = (this.turn % 4 + 1) as PlayerId;

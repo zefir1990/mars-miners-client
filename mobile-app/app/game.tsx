@@ -25,7 +25,6 @@ interface GameViewProps {
 }
 
 function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId, userId, connectionStatus, isReplayMode, initialLog }: GameViewProps) {
-    const router = useRouter();
     console.log('GameView Roles:', game.roles);
     // Capture state for Effect dependencies and Render
     const currentTurn = game.turn;
@@ -52,7 +51,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
     const [selectedCell, setSelectedCell] = useState<{ r: number, c: number } | null>(null);
     const [popupSize, setPopupSize] = useState({ width: 0, height: 0 });
     const [showLog, setShowLog] = useState(false);
-    const [highlight, setHighlight] = useState(game.highlight_weapon);
+    const [highlight] = useState(game.highlight_weapon);
     const [pendingSacrifice, setPendingSacrifice] = useState<[number, number] | null>(null);
     const [showGameOverModal, setShowGameOverModal] = useState(false);
     const [isAIThinking, setIsAIThinking] = useState(false);
@@ -75,7 +74,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [isReplayMode, replayIdx, initialLog]);
+    }, [isReplayMode, replayIdx, initialLog, game]);
 
     // AI Loop
     useEffect(() => {
@@ -148,7 +147,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                 clearTimeout(timer);
             };
         }
-    }, [currentTurn, isGameOver, tick]);
+    }, [currentTurn, isGameOver, tick, battlelogWriter, game, isReplayMode, maxAIThinkTimeMs, turnRole]);
 
     useEffect(() => {
         if (isGameOver) {
@@ -324,6 +323,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                 style={[styles.cell, { width: cellSize, height: cellSize, backgroundColor: bgColor }]}
                 onPress={() => handleCellPress(r, c)}
                 activeOpacity={0.7}
+                testID="game-cell"
             >
                 <Text style={{ color, fontSize: cellSize * 0.7, fontWeight: 'bold' }}>{displayText}</Text>
             </TouchableOpacity>
@@ -520,7 +520,7 @@ export default function GameScreen() {
     const gameRef = useRef<MarsMinersGame | null>(null);
     const battlelogWriterRef = useRef<BattlelogWriter | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
-    const [tick, setTick] = useState(0); // Renamed from [, setTick] to [tick, setTick]
+    const [, setTick] = useState(0); 
 
     const [connectionStatus, setConnectionStatus] = useState(''); // Initialize empty, update in useEffect
 
@@ -528,8 +528,6 @@ export default function GameScreen() {
         if (!isInitialized && params.roles) {
             try {
                 const roles = JSON.parse(params.roles as string);
-                const width = parseInt(params.grid_width as string) || 10;
-                const height = parseInt(params.grid_height as string) || 10;
                 const weaponReq = parseInt(params.weapon_req as string) || 4;
                 const mode = params.mode as string;
                 const sessionId = params.session_id as string;
@@ -601,7 +599,7 @@ export default function GameScreen() {
                                 gameRef.current.fromDict(parsed);
                             }
                         }
-                    } catch (e) {
+                    } catch {
                         const lines = (params.restore_state as string).split('\n').filter(l => l.trim().length > 0);
                         if (params.mode === 'replay') {
                             const setupLines = lines.filter(l => l.startsWith('WEAPON_REQ') || l.startsWith('JOIN') || l.startsWith('SIZE'));
@@ -618,6 +616,7 @@ export default function GameScreen() {
                 router.replace('/');
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [params.roles]);
 
     const handleBack = () => {
@@ -642,7 +641,7 @@ export default function GameScreen() {
         try {
             const parsed = JSON.parse(params.restore_state as string);
             return parsed.battleLog || [];
-        } catch (e) {
+        } catch {
             return (params.restore_state as string).split('\n').filter(l => l.trim().length > 0);
         }
     })() : [];
