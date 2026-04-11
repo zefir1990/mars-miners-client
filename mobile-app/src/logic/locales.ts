@@ -26,7 +26,7 @@ export const LOCALE = {
         'training_btn': "Training",
         'training_rules_title': "How to play",
         'training_rules_text': "Build bases to expand territory.\nBuild mines to gather points.\nConnect 4 bases in a line to charge a laser.\nTap on your base, then on an enemy to shoot.",
-        'start_training_btn': "Start Training",
+        'start_training_btn': "Start",
         'expedition_log': "--- EXPEDITION LOG ---", 'initializing': "Initializing...",
         'game_over': "Mission Complete",
         'save_confirm_title': "Save Battle Log",
