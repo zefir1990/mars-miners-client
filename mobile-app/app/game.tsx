@@ -614,14 +614,14 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.gridContainer} onLayout={onLayout} ref={gridRef as any}>
-                {isIndicatorVisible && (
-                    <Animated.View style={[styles.aiThinkingOverlay, { opacity: aiOpacity }]}>
-                        <ActivityIndicator size="large" color="#ffffff" />
-                        <Text style={styles.aiThinkingText}>{t('ai_thinking', 'en')}</Text>
-                    </Animated.View>
-                )}
-                <GestureDetector gesture={composedGesture}>
+            <GestureDetector gesture={composedGesture}>
+                <View style={styles.gridContainer} onLayout={onLayout} ref={gridRef as any}>
+                    {isIndicatorVisible && (
+                        <Animated.View style={[styles.aiThinkingOverlay, { opacity: aiOpacity }]}>
+                            <ActivityIndicator size="large" color="#ffffff" />
+                            <Text style={styles.aiThinkingText}>{t('ai_thinking', 'en')}</Text>
+                        </Animated.View>
+                    )}
                     <Reanimated.View style={[{ alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
                         {cellSize > 0 && (
                             <View style={{ width: cellSize * game.width, height: cellSize * game.height }}>
@@ -696,8 +696,8 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                             </View>
                         )}
                     </Reanimated.View>
-                </GestureDetector>
-            </View>
+                </View>
+            </GestureDetector>
 
             {showLog && (
                 <>
