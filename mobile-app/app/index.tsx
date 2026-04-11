@@ -5,7 +5,10 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, Clipboard, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { t } from '../src/logic/locales';
+
+const menuVideo = require('../assets/videos/menu.mp4');
 
 export default function MainMenu() {
     const router = useRouter();
@@ -16,6 +19,17 @@ export default function MainMenu() {
     const [showSessionIdModal, setShowSessionIdModal] = useState(false);
     const [generatedSessionId, setGeneratedSessionId] = useState('');
     const [generatedUserId, setGeneratedUserId] = useState('');
+
+    const player = useVideoPlayer(menuVideo, player => {
+        player.loop = true;
+        player.muted = true;
+    });
+
+    useEffect(() => {
+        if (player) {
+            player.play();
+        }
+    }, [player]);
 
     const startTraining = () => {
         setShowTrainingRules(false);
@@ -228,6 +242,12 @@ export default function MainMenu() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <VideoView 
+                style={StyleSheet.absoluteFill} 
+                player={player} 
+                contentFit="cover"
+                nativeControls={false}
+            />
             <View style={styles.content}>
                 <Text style={styles.title}>MARS MINERS</Text>
 
