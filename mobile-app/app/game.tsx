@@ -74,6 +74,8 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
     const translateY = useSharedValue(0);
     const savedTranslateX = useSharedValue(0);
     const savedTranslateY = useSharedValue(0);
+    const layoutWidth = useSharedValue(1000);
+    const layoutHeight = useSharedValue(1000);
 
     const pinchGesture = Gesture.Pinch()
         .onUpdate((e) => {
@@ -87,8 +89,20 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
     const panGesture = Gesture.Pan()
         .minPointers(1)
         .onUpdate((e) => {
-            translateX.value = savedTranslateX.value + e.translationX;
-            translateY.value = savedTranslateY.value + e.translationY;
+            const availableSize = Math.min(layoutWidth.value, layoutHeight.value);
+            const scaledMapSize = availableSize * scale.value;
+            // The max translation is the amount needed to bring the edge of the scaled map to the edge of the screen, plus a 50px buffer. 
+            const limitX = Math.max((scaledMapSize - layoutWidth.value) / 2, 0) + 50;
+            const limitY = Math.max((scaledMapSize - layoutHeight.value) / 2, 0) + 50;
+            
+            let nextX = savedTranslateX.value + e.translationX;
+            let nextY = savedTranslateY.value + e.translationY;
+            
+            nextX = Math.min(Math.max(nextX, -limitX), limitX);
+            nextY = Math.min(Math.max(nextY, -limitY), limitY);
+
+            translateX.value = nextX;
+            translateY.value = nextY;
         })
         .onEnd(() => {
             savedTranslateX.value = translateX.value;
@@ -350,6 +364,8 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
     const onLayout = (event: any) => {
         const { width, height } = event.nativeEvent.layout;
         setLayout({ width, height });
+        layoutWidth.value = width;
+        layoutHeight.value = height;
     };
 
     // Rendering Helpers
