@@ -3,7 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { getLocales } from 'expo-localization';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Clipboard, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Clipboard, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { t } from '../src/logic/locales';
@@ -12,6 +12,7 @@ const menuVideo = require('../assets/videos/menu.mp4');
 
 export default function MainMenu() {
     const router = useRouter();
+    const { width, height } = useWindowDimensions();
     const [lang, setLang] = useState<'en' | 'ru'>('en');
     const [showTrainingRules, setShowTrainingRules] = useState(false);
     const [showSingleplayerModal, setShowSingleplayerModal] = useState(false);
@@ -242,12 +243,18 @@ export default function MainMenu() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <VideoView 
-                style={StyleSheet.absoluteFill} 
-                player={player} 
-                contentFit="cover"
-                nativeControls={false}
-            />
+            <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: -1 }]}>
+                <VideoView 
+                    style={{
+                        width: Math.max(width, height),
+                        height: Math.max(width, height),
+                        position: 'absolute'
+                    }} 
+                    player={player} 
+                    contentFit="cover"
+                    nativeControls={false}
+                />
+            </View>
             <View style={styles.content}>
                 <Text style={styles.title}>MARS MINERS</Text>
 
