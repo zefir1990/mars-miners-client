@@ -2,9 +2,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getLocales } from 'expo-localization';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Clipboard, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { t } from '../src/logic/locales';
 
@@ -26,11 +27,13 @@ export default function MainMenu() {
         player.muted = true;
     });
 
-    useEffect(() => {
-        if (player) {
-            player.play();
-        }
-    }, [player]);
+    useFocusEffect(
+        useCallback(() => {
+            if (player) {
+                player.play();
+            }
+        }, [player])
+    );
 
     const startTraining = () => {
         setShowTrainingRules(false);
