@@ -257,6 +257,7 @@ export default function MainMenu() {
                     player={player} 
                     contentFit="cover"
                     nativeControls={false}
+                    playsInline={true}
                 />
             </View>
             <View style={styles.content}>

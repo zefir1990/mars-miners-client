@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -12,11 +12,59 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+const menuMusic = require('../assets/music/main.mp3');
+
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const interactionListenerRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const audio = new Audio(menuMusic);
+    audio.loop = true;
+    audio.volume = 0.5;
+    audioRef.current = audio;
+
+    const tryPlay = () => {
+        const promise = audio.play();
+        if (promise !== undefined) {
+            promise.catch(() => {
+                // Autoplay blocked — start on first user interaction
+                const onInteraction = () => {
+                    audio.play();
+                    document.removeEventListener('click', onInteraction);
+                    document.removeEventListener('touchstart', onInteraction);
+                    document.removeEventListener('keydown', onInteraction);
+                    interactionListenerRef.current = null;
+                };
+                interactionListenerRef.current = onInteraction;
+                document.addEventListener('click', onInteraction, { once: false });
+                document.addEventListener('touchstart', onInteraction, { once: false });
+                document.addEventListener('keydown', onInteraction, { once: false });
+            });
+        }
+    };
+
+    tryPlay();
+
+    return () => {
+        audio.pause();
+        audio.src = '';
+        audioRef.current = null;
+        if (interactionListenerRef.current) {
+            document.removeEventListener('click', interactionListenerRef.current);
+            document.removeEventListener('touchstart', interactionListenerRef.current);
+            document.removeEventListener('keydown', interactionListenerRef.current);
+            interactionListenerRef.current = null;
+        }
+    };
+  }, []);
 
   const [loaded, error] = useFonts({
     RobotoMono_700Bold,
