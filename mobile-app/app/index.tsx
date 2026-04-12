@@ -3,13 +3,14 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { getLocales } from 'expo-localization';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Clipboard, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, Clipboard, Image, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { t } from '../src/logic/locales';
 
 const menuVideo = require('../assets/videos/menu.mp4');
+const logoImage = require('../assets/images/logo.png');
 
 export default function MainMenu() {
     const router = useRouter();
@@ -259,7 +260,7 @@ export default function MainMenu() {
                 />
             </View>
             <View style={styles.content}>
-                <Text style={styles.title}>MARS MINERS</Text>
+                <Image source={logoImage} style={{ width: Math.max(width * 0.36, 380), height: Math.max(width * 0.36, 380) * 5 / 8, marginBottom: 30 }} resizeMode="contain" />
 
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity 
@@ -426,7 +427,7 @@ export default function MainMenu() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#121212' },
     content: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
-    title: { fontSize: 40, fontWeight: 'bold', color: '#ff4d4d', letterSpacing: 5, marginBottom: 60, textAlign: 'center' },
+
     buttonContainer: { width: '100%', maxWidth: 300 },
     button: {
         backgroundColor: '#4a9eff',
