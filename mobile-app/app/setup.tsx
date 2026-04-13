@@ -50,6 +50,7 @@ export default function SetupScreen() {
         1: 'human', 2: 'normal_ai', 3: 'none', 4: 'none'
     });
     const [weaponReq, setWeaponReq] = useState(4);
+    const [mapSize, setMapSize] = useState(10);
     const [loaded, setLoaded] = useState(false);
 
     const cycleRole = (pid: PlayerId) => {
@@ -65,6 +66,11 @@ export default function SetupScreen() {
         setWeaponReq(r => reqs[(reqs.indexOf(r) + 1) % reqs.length]);
     };
 
+    const cycleMapSize = () => {
+        const sizes = [10, 30, 60, 100];
+        setMapSize(s => sizes[(sizes.indexOf(s) + 1) % sizes.length]);
+    };
+
     // Load defaults
     useEffect(() => {
         (async () => {
@@ -74,6 +80,7 @@ export default function SetupScreen() {
                     const config = JSON.parse(saved);
                     if (config.roles) setRoles(normalizeRoles(config.roles));
                     if (config.weaponReq) setWeaponReq(config.weaponReq);
+                    if (config.mapSize) setMapSize(config.mapSize);
                 }
             } catch (e) {
                 console.log('Failed to load settings', e);
@@ -86,19 +93,19 @@ export default function SetupScreen() {
     // Auto-save on change
     useEffect(() => {
         if (!loaded) return;
-        const config = { roles, weaponReq };
+        const config = { roles, weaponReq, mapSize };
         AsyncStorage.setItem('mm_setup_config', JSON.stringify(config)).catch(e => {
             console.log('Failed to save settings', e);
         });
-    }, [loaded, roles, weaponReq]);
+    }, [loaded, roles, weaponReq, mapSize]);
 
     const startGame = () => {
         router.push({
             pathname: '/game',
             params: {
                 roles: JSON.stringify(roles),
-                grid_width: '10',
-                grid_height: '10',
+                grid_width: mapSize.toString(),
+                grid_height: mapSize.toString(),
                 weapon_req: weaponReq.toString(),
                 mode: 'single'
             }
@@ -106,7 +113,11 @@ export default function SetupScreen() {
     };
 
     const handleBack = () => {
-        router.back();
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace('/');
+        }
     };
 
     return (
@@ -143,6 +154,13 @@ export default function SetupScreen() {
                 })}
 
                 <View style={styles.divider} />
+
+                <View style={styles.row}>
+                    <Text style={styles.label}>{t('map_size', lang)}</Text>
+                    <TouchableOpacity onPress={cycleMapSize} style={styles.button}>
+                        <Text style={styles.buttonText}>{mapSize}x{mapSize}</Text>
+                    </TouchableOpacity>
+                </View>
 
                 <View style={styles.row}>
                     <Text style={styles.label}>{t('weapon_req', lang)}</Text>

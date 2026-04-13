@@ -143,7 +143,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
             const timer = setTimeout(() => {
                 const command = initialLog[replayIdx];
                 // Skip setup commands as they were likely applied during init or should be applied instantly
-                if (command.startsWith('SIZE') || command.startsWith('WEAPON_REQ') || command.startsWith('JOIN')) {
+                if (command.startsWith('MAP_SIZE') || command.startsWith('WEAPON_REQ') || command.startsWith('JOIN')) {
                     // Just skip, but we move to next
                     setReplayIdx(idx => idx + 1);
                 } else {
@@ -791,7 +791,10 @@ export default function GameScreen() {
                 const sessionId = params.session_id as string;
                 const userId = params.user_id as string;
 
-                gameRef.current = new MarsMinersGame(roles, weaponReq);
+                const widthParam = params.grid_width as string;
+                const size = parseInt(widthParam) || 10;
+
+                gameRef.current = new MarsMinersGame(roles, weaponReq, size);
 
                 if (mode === 'multi') {
                     setConnectionStatus('Connecting...'); // Set initial status for multi-mode
@@ -844,27 +847,17 @@ export default function GameScreen() {
                 if (params.restore_state) {
                     try {
                         const parsed = JSON.parse(params.restore_state as string);
-                        const logLines = parsed.battleLog || (typeof params.restore_state === 'string' ? (params.restore_state as string).split('\n').filter(l => l.trim().length > 0) : []);
+                        const logLines = parsed.battleLog;
                         
                         if (params.mode === 'replay') {
                             // Only apply setup commands instantly
-                            const setupLines = logLines.filter((l: string) => l.startsWith('WEAPON_REQ') || l.startsWith('JOIN') || l.startsWith('SIZE'));
+                            const setupLines = logLines.filter((l: string) => l.startsWith('WEAPON_REQ') || l.startsWith('JOIN') || l.startsWith('MAP_SIZE'));
                             gameRef.current.replayLog(setupLines);
                         } else {
-                            if (parsed.battleLog) {
-                                gameRef.current.replayLog(parsed.battleLog);
-                            } else {
-                                gameRef.current.fromDict(parsed);
-                            }
+                            gameRef.current.replayLog(logLines);
                         }
-                    } catch {
-                        const lines = (params.restore_state as string).split('\n').filter(l => l.trim().length > 0);
-                        if (params.mode === 'replay') {
-                            const setupLines = lines.filter(l => l.startsWith('WEAPON_REQ') || l.startsWith('JOIN') || l.startsWith('SIZE'));
-                            gameRef.current.replayLog(setupLines);
-                        } else {
-                            gameRef.current.replayLog(lines);
-                        }
+                    } catch (e) {
+                        console.error("Failed to parse restore_state", e);
                     }
                 }
 

@@ -82,29 +82,15 @@ export default function MainMenu() {
             }
 
             const lines = fileContent.split('\n').filter(l => l.trim().length > 0);
+            const sizeLine = lines.find(l => l.startsWith('MAP_SIZE '));
             const weaponLine = lines.find(l => l.startsWith('WEAPON_REQ '));
             const joinLines = lines.filter(l => l.startsWith('JOIN '));
 
-            if (!weaponLine || joinLines.length === 0) {
-                // Fallback to JSON if it's an old save
-                try {
-                    const state = JSON.parse(fileContent);
-                    router.push({
-                        pathname: '/game',
-                        params: {
-                            roles: JSON.stringify(state.roles || { 1: 'human', 2: 'normal_ai', 3: 'none', 4: 'none' }),
-                            grid_width: '10',
-                            grid_height: '10',
-                            weapon_req: (state.weapon_req || 4).toString(),
-                            restore_state: fileContent
-                        }
-                    });
-                    return;
-                } catch {
-                    throw new Error("Invalid log file: Missing standard configurations");
-                }
+            if (!sizeLine || !weaponLine || joinLines.length === 0) {
+                throw new Error("Invalid log file: Missing standard configurations");
             }
 
+            const size = parseInt(sizeLine.split(' ')[1]) || 10;
             const weaponReq = parseInt(weaponLine.split(' ')[1]) || 4;
             const roles: Record<number, string> = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
             joinLines.forEach((l, i) => {
@@ -115,8 +101,8 @@ export default function MainMenu() {
                 pathname: '/game',
                 params: {
                     roles: JSON.stringify(roles),
-                    grid_width: '10',
-                    grid_height: '10',
+                    grid_width: size.toString(),
+                    grid_height: size.toString(),
                     weapon_req: weaponReq.toString(),
                     restore_state: JSON.stringify({ battleLog: lines })
                 }
@@ -145,33 +131,16 @@ export default function MainMenu() {
             }
 
             const lines = fileContent.split('\n').filter(l => l.trim().length > 0);
+            const sizeLine = lines.find(l => l.startsWith('MAP_SIZE '));
             const weaponLine = lines.find(l => l.startsWith('WEAPON_REQ '));
             const joinLines = lines.filter(l => l.startsWith('JOIN '));
 
-            if (joinLines.length === 0) {
-                try {
-                    // Try to parse as old JSON format if it's not a text log
-                    const state = JSON.parse(fileContent);
-                    if (state.roles) {
-                        router.push({
-                            pathname: '/game',
-                            params: {
-                                roles: JSON.stringify(state.roles),
-                                grid_width: '10',
-                                grid_height: '10',
-                                weapon_req: (state.weapon_req || 4).toString(),
-                                restore_state: fileContent,
-                                mode: 'replay'
-                            }
-                        });
-                        return;
-                    }
-                } catch {
-                    throw new Error("Invalid log file");
-                }
+            if (!sizeLine || !weaponLine || joinLines.length === 0) {
+                throw new Error("Invalid log file: Missing standard configurations");
             }
 
-            const weaponReq = parseInt(weaponLine ? weaponLine.split(' ')[1] : '4') || 4;
+            const size = parseInt(sizeLine.split(' ')[1]) || 10;
+            const weaponReq = parseInt(weaponLine.split(' ')[1]) || 4;
             const roles: Record<number, string> = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
             joinLines.forEach((l, i) => {
                 roles[i + 1] = l.split(' ')[1];
@@ -181,8 +150,8 @@ export default function MainMenu() {
                 pathname: '/game',
                 params: {
                     roles: JSON.stringify(roles),
-                    grid_width: '10',
-                    grid_height: '10',
+                    grid_width: size.toString(),
+                    grid_height: size.toString(),
                     weapon_req: weaponReq.toString(),
                     restore_state: JSON.stringify({ battleLog: lines }),
                     mode: 'replay'

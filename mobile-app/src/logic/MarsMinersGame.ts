@@ -13,17 +13,6 @@ export interface Player {
     color: string;
 }
 
-export interface GameState {
-    width: number;
-    height: number;
-    roles: Record<PlayerId, PlayerRole>;
-    weapon_req: number;
-    turn: PlayerId;
-    player_lost: Record<PlayerId, boolean>;
-    game_over: boolean;
-    battleLog: string[];
-    playerIds: Record<PlayerId, string>;
-}
 
 export type AIMove =
     | { type: 'S', r: number, c: number }
@@ -45,27 +34,35 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
 
     players: Record<PlayerId, Player>;
 
-    constructor(
-        roles: Record<PlayerId, PlayerRole>,
-        weapon_req = 4
-    ) {
-        this.width = 10;
-        this.height = 10;
+    private initMap(size: number) {
+        this.width = size;
+        this.height = size;
         this.grid = Array(this.height).fill(null).map(() => Array(this.width).fill('.'));
-        this.roles = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' }; // Will be overwritten by loop below
-        this.weapon_req = weapon_req;
-        this.player_lost = { 1: false, 2: false, 3: false, 4: false };
-        this.game_over = false;
-        this.battleLog = [];
-        this.playerIds = { 1: '', 2: '', 3: '', 4: '' };
-
         this.players = {
             1: { st: '↑', mi: '○', name: t('player_1', 'en'), pos: [1, 1], color: '#FF0000' },
             2: { st: '↓', mi: '△', name: t('player_2', 'en'), pos: [this.height - 2, this.width - 2], color: '#64FF64' },
             3: { st: '←', mi: '□', name: t('player_3', 'en'), pos: [1, this.width - 2], color: '#00DFFF' },
             4: { st: '→', mi: '◇', name: t('player_4', 'en'), pos: [this.height - 2, 1], color: '#FFC832' }
         };
+    }
 
+    constructor(
+        roles: Record<PlayerId, PlayerRole>,
+        weapon_req = 4,
+        size = 10
+    ) {
+        this.width = size;
+        this.height = size;
+        this.grid = [];
+        this.roles = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
+        this.weapon_req = weapon_req;
+        this.player_lost = { 1: false, 2: false, 3: false, 4: false };
+        this.game_over = false;
+        this.battleLog = [];
+        this.playerIds = { 1: '', 2: '', 3: '', 4: '' };
+        this.players = {} as any;
+
+        this.applyCommand(`MAP_SIZE ${size}`);
         this.applyCommand(`WEAPON_REQ ${this.weapon_req}`);
 
         for (let p_id = 1; p_id <= 4; p_id++) {
@@ -92,25 +89,10 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
         }
     }
 
-    toDict(): GameState {
-        return {
-            width: this.width,
-            height: this.height,
-            roles: { ...this.roles },
-            weapon_req: this.weapon_req,
-            turn: this.turn,
-            player_lost: { ...this.player_lost },
-            game_over: this.game_over,
-            battleLog: [...this.battleLog],
-            playerIds: { ...this.playerIds }
-        };
-    }
 
     replayLog(log: string[]) {
         // Reset state
-        this.width = 10;
-        this.height = 10;
-        this.grid = Array(this.height).fill(null).map(() => Array(this.width).fill('.'));
+        this.initMap(10); // Default, might be overwritten by MAP_SIZE
         this.roles = { 1: 'none', 2: 'none', 3: 'none', 4: 'none' };
         this.playerIds = { 1: '', 2: '', 3: '', 4: '' };
         this.turn = 1;
@@ -150,8 +132,10 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
         const parts = entry.split(' ');
         const cmd = parts[0];
 
-        if (cmd === 'SIZE') {
-            return;
+        if (cmd === 'MAP_SIZE') {
+            const size = parseInt(parts[1]);
+            this.initMap(size);
+            this.battleLog.push(entry);
         } else if (cmd === 'WEAPON_REQ') {
             this.weapon_req = parseInt(parts[1]);
             this.battleLog.push(entry);
@@ -172,7 +156,7 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
                 }
             }
             // 2. If no matching pre-filled slot, find an empty slot
-            if (pid === 0) {
+            if ((pid as any) === 0) {
                 for (let i = 1; i <= 4; i++) {
                     if (this.roles[i as PlayerId] === 'none') {
                         pid = i as PlayerId;
@@ -181,7 +165,7 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
                 }
             }
             // 3. Fallback (should not happen in valid flow, but keep safety)
-            if (pid === 0) pid = 1;
+            if ((pid as any) === 0) pid = 1;
             this.roles[pid] = role;
             this.playerIds[pid] = userId;
             this.player_lost[pid] = false;
@@ -256,19 +240,6 @@ export class MarsMinersGame implements BattlelogWriterDelegate {
         } while ((this.roles[this.turn] === 'none' || this.player_lost[this.turn]) && this.turn !== startTurn);
     }
 
-    fromDict(state: GameState) {
-        this.width = state.width;
-        this.height = state.height;
-        this.roles = { ...state.roles };
-        this.weapon_req = state.weapon_req;
-        this.turn = state.turn;
-        this.player_lost = { ...state.player_lost };
-        this.game_over = state.game_over;
-        this.battleLog = [...state.battleLog];
-
-        // Reconstruct grid from log if needed, but here we assume the dict is complete
-        // Actually fromDict should probably just set the values.
-    }
 
     nextTurn() {
         this.nextTurnInternal();
