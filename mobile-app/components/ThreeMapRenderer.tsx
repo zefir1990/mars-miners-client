@@ -425,6 +425,13 @@ export default function ThreeMapRenderer({
 
     const composedGesture = Gesture.Simultaneous(panGesture, pinchGesture, tapGesture);
 
+    const handleWheel = useCallback((e: any) => {
+        if (!cameraState.current) return;
+        // React synthetic event might have deltaY on nativeEvent or directly on e
+        const delta = e.deltaY ?? e.nativeEvent?.deltaY ?? 0;
+        cameraState.current.zoom = Math.max(0.5, Math.min(3.0, cameraState.current.zoom - delta * 0.001));
+    }, []);
+
     return (
         <View style={styles.container}>
             {/* Three.js GL canvas */}
@@ -432,6 +439,7 @@ export default function ThreeMapRenderer({
                 <View
                     style={styles.glContainer}
                     onLayout={e => setGlSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+                    {...({ onWheel: handleWheel } as any)}
                 >
                     <GLView
                         style={StyleSheet.absoluteFill}
