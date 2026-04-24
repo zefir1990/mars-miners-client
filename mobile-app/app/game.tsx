@@ -14,7 +14,7 @@ import { BattlelogWriter } from '../src/logic/battlelog/BattlelogWriter';
 import { SingleplayerBattlelogWriter } from '../src/logic/battlelog/SingleplayerBattlelogWriter';
 import { WebsocketsBattlelogWriter } from '../src/logic/battlelog/WebsocketsBattlelogWriter';
 import { t } from '../src/logic/locales';
-import NativeMapRenderer from '../components/NativeMapRenderer';
+import ThreeMapRenderer from '../components/ThreeMapRenderer';
 
 interface GameViewProps {
     game: MarsMinersGame;
@@ -287,7 +287,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                 </TouchableOpacity>
             </View>
 
-            <NativeMapRenderer
+            <ThreeMapRenderer
                 game={game}
                 currentTurn={currentTurn}
                 turnRole={turnRole}
@@ -305,7 +305,7 @@ function GameView({ game, playfieldDelegate, battlelogWriter, onBack, sessionId,
                         <Text style={styles.aiThinkingText}>{t('ai_thinking', 'en')}</Text>
                     </Animated.View>
                 )}
-            </NativeMapRenderer>
+            </ThreeMapRenderer>
 
             {showLog && (
                 <>
