@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { MapRendererProps } from './MapRenderer';
 import { PlayerId } from '../src/logic/MarsMinersGame';
 import { t } from '../src/logic/locales';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Asset } from 'expo-asset';
 
 // ─── Cell type helpers ───────────────────────────────────────────────────────
 
@@ -77,6 +79,15 @@ export default function ThreeMapRenderer({
     const gridH = game.height;
     const offsetX = -(gridW * (CELL + GAP)) / 2 + CELL / 2;
     const offsetZ = -(gridH * (CELL + GAP)) / 2 + CELL / 2;
+
+    const cameraState = useRef({
+        panX: 0,
+        panZ: 0,
+        zoom: 1,
+        startPanX: 0,
+        startPanZ: 0,
+        startZoom: 1
+    });
 
     // Build / rebuild the grid meshes whenever tick changes
     const rebuildGrid = useCallback((scene: ThreeScene) => {
@@ -186,11 +197,33 @@ export default function ThreeMapRenderer({
 
         // Ground plane
         const groundGeo = new THREE.PlaneGeometry(gridW * (CELL + GAP) + 1, gridH * (CELL + GAP) + 1);
-        const groundMat = new THREE.MeshStandardMaterial({ color: '#111122', roughness: 1 });
+        const groundMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1 });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
         scene.add(ground);
+
+        // Load ground texture asynchronously
+        (async () => {
+            try {
+                const asset = Asset.fromModule(require('../assets/images/empty_tile_1.png'));
+                await asset.downloadAsync();
+                const uri = asset.localUri || asset.uri;
+                if (uri) {
+                    const textureLoader = new THREE.TextureLoader();
+                    textureLoader.load(uri, (texture) => {
+                        texture.wrapS = THREE.RepeatWrapping;
+                        texture.wrapT = THREE.RepeatWrapping;
+                        texture.repeat.set(gridW, gridH);
+                        groundMat.map = texture;
+                        groundMat.color = new THREE.Color('#333333'); // Darken it slightly so it looks like ground
+                        groundMat.needsUpdate = true;
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to load ground texture', e);
+            }
+        })();
 
         const threeScene: ThreeScene = {
             renderer,
@@ -207,11 +240,20 @@ export default function ThreeMapRenderer({
         // Render loop
         const render = () => {
             threeScene.animFrameId = requestAnimationFrame(render);
+
+            const camDist = Math.max(gridW, gridH) * 1.1 / cameraState.current.zoom;
+            camera.position.set(
+                cameraState.current.panX,
+                camDist * 1.0,
+                cameraState.current.panZ + camDist * 0.7
+            );
+            camera.lookAt(cameraState.current.panX, 0, cameraState.current.panZ);
+
             renderer.render(scene, camera);
             gl.endFrameEXP();
         };
         render();
-    }, []); // intentionally empty – only created once
+    }, [gridW, gridH, CELL, GAP]); // Recreate context logic only if grid size drastically changes
 
     // Rebuild grid whenever tick/state changes
     React.useEffect(() => {
@@ -221,10 +263,11 @@ export default function ThreeMapRenderer({
     }, [tick, pendingSacrifice, rebuildGrid]);
 
     // ── Touch / tap handling ──────────────────────────────────────────────────
-    const handleTap = useCallback((evt: any) => {
+    const handleTap = useCallback((e: any) => {
         if (!sceneRef.current || isReplayMode || !isHumanTurn) return;
 
-        const { locationX, locationY } = evt.nativeEvent;
+        const locationX = e.x;
+        const locationY = e.y;
         const { width, height } = glSize;
         if (width === 0 || height === 0) return;
 
@@ -299,20 +342,49 @@ export default function ThreeMapRenderer({
         }
     }, [game, currentTurn, isHumanTurn, isReplayMode, pendingSacrifice, selectedCell, playfieldDelegate, forceUpdate, glSize]);
 
+    const panGesture = Gesture.Pan()
+        .runOnJS(true)
+        .onStart(() => {
+            cameraState.current.startPanX = cameraState.current.panX;
+            cameraState.current.startPanZ = cameraState.current.panZ;
+        })
+        .onUpdate((e) => {
+            const scale = (Math.max(gridW, gridH) / 300) / cameraState.current.zoom;
+            cameraState.current.panX = cameraState.current.startPanX - e.translationX * scale;
+            cameraState.current.panZ = cameraState.current.startPanZ - e.translationY * scale;
+        });
+
+    const pinchGesture = Gesture.Pinch()
+        .runOnJS(true)
+        .onStart(() => {
+            cameraState.current.startZoom = cameraState.current.zoom;
+        })
+        .onUpdate((e) => {
+            cameraState.current.zoom = Math.max(0.5, Math.min(3.0, cameraState.current.startZoom * e.scale));
+        });
+
+    const tapGesture = Gesture.Tap()
+        .runOnJS(true)
+        .onEnd((e) => {
+            handleTap(e);
+        });
+
+    const composedGesture = Gesture.Simultaneous(panGesture, pinchGesture, tapGesture);
+
     return (
         <View style={styles.container}>
             {/* Three.js GL canvas */}
-            <View
-                style={styles.glContainer}
-                onLayout={e => setGlSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
-            >
-                <GLView
-                    style={StyleSheet.absoluteFill}
-                    onContextCreate={onContextCreate}
-                />
-                {/* Transparent touch overlay on top of GL canvas */}
-                <Pressable style={StyleSheet.absoluteFill} onPress={handleTap} />
-            </View>
+            <GestureDetector gesture={composedGesture}>
+                <View
+                    style={styles.glContainer}
+                    onLayout={e => setGlSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+                >
+                    <GLView
+                        style={StyleSheet.absoluteFill}
+                        onContextCreate={onContextCreate}
+                    />
+                </View>
+            </GestureDetector>
 
             {/* Children (e.g. AI thinking overlay) */}
             {children}
