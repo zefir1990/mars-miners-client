@@ -52,6 +52,12 @@ interface ThreeScene {
     cellMeshes: Map<string, THREE.Mesh>;
     weaponHighlights: Map<string, THREE.Mesh>;
     animFrameId: number;
+    textures: {
+        base: THREE.Texture | null;
+        mine: THREE.Texture | null;
+        crater: THREE.Texture | null;
+        empty: THREE.Texture | null;
+    };
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -112,7 +118,7 @@ export default function ThreeMapRenderer({
             for (let c = 0; c < gridW; c++) {
                 const item = game.grid[r][c];
                 const key = `${r},${c}`;
-                const { color, height } = getCellInfo(item, game, currentTurn);
+                const { isBase, isMine, isDestroyed, isEmpty, color, height } = getCellInfo(item, game, currentTurn);
 
                 const isWeaponPart = weaponCells.has(key);
                 const isSelectedSacrifice = pendingSacrifice && pendingSacrifice[0] === r && pendingSacrifice[1] === c;
@@ -135,11 +141,28 @@ export default function ThreeMapRenderer({
                     effectiveColor = new THREE.Color('#ff3b30');
                 }
 
+                let tex = null;
+                let transparent = false;
+                let opacity = 1.0;
+
+                if (isBase) tex = scene.textures.base;
+                else if (isMine) tex = scene.textures.mine;
+                else if (isDestroyed) tex = scene.textures.crater;
+                else if (isEmpty) {
+                    tex = scene.textures.empty;
+                    effectiveColor = new THREE.Color('#ffffff');
+                    transparent = true;
+                    opacity = 0.1;
+                }
+
                 const geo = new THREE.BoxGeometry(CELL, height, CELL);
                 const mat = new THREE.MeshStandardMaterial({
                     color: effectiveColor,
                     roughness: 0.7,
                     metalness: 0.2,
+                    map: tex,
+                    transparent,
+                    opacity
                 });
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.position.set(
@@ -171,11 +194,11 @@ export default function ThreeMapRenderer({
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.9;
+        renderer.toneMappingExposure = 1.5;
 
         // Scene
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color('#0d0d1a');
+        scene.background = new THREE.Color('#e0b485'); // Dusty/sandy sky
 
         // Camera – isometric-ish perspective looking down
         const aspect = w / h;
@@ -185,14 +208,23 @@ export default function ThreeMapRenderer({
         camera.lookAt(0, 0, 0);
 
         // Lights
-        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambient = new THREE.AmbientLight('#ffeedd', 0.8); // Warm, bright ambient
         scene.add(ambient);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        dirLight.position.set(5, 10, 5);
+        const dirLight = new THREE.DirectionalLight('#ffddaa', 2.5); // Very bright, warm sun
+        dirLight.position.set(20, 30, 10);
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.width = 1024;
         dirLight.shadow.mapSize.height = 1024;
+        
+        // Expand shadow camera to cover the whole grid
+        const shadowSize = Math.max(gridW, gridH) * 1.5;
+        dirLight.shadow.camera.left = -shadowSize;
+        dirLight.shadow.camera.right = shadowSize;
+        dirLight.shadow.camera.top = shadowSize;
+        dirLight.shadow.camera.bottom = -shadowSize;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 100;
         scene.add(dirLight);
 
         // Ground plane
@@ -203,28 +235,6 @@ export default function ThreeMapRenderer({
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // Load ground texture asynchronously
-        (async () => {
-            try {
-                const asset = Asset.fromModule(require('../assets/images/empty_tile_1.png'));
-                await asset.downloadAsync();
-                const uri = asset.localUri || asset.uri;
-                if (uri) {
-                    const textureLoader = new THREE.TextureLoader();
-                    textureLoader.load(uri, (texture) => {
-                        texture.wrapS = THREE.RepeatWrapping;
-                        texture.wrapT = THREE.RepeatWrapping;
-                        texture.repeat.set(gridW, gridH);
-                        groundMat.map = texture;
-                        groundMat.color = new THREE.Color('#333333'); // Darken it slightly so it looks like ground
-                        groundMat.needsUpdate = true;
-                    });
-                }
-            } catch (e) {
-                console.warn('Failed to load ground texture', e);
-            }
-        })();
-
         const threeScene: ThreeScene = {
             renderer,
             scene,
@@ -232,8 +242,52 @@ export default function ThreeMapRenderer({
             cellMeshes: new Map(),
             weaponHighlights: new Map(),
             animFrameId: 0,
+            textures: { base: null, mine: null, crater: null, empty: null }
         };
         sceneRef.current = threeScene;
+
+        // Load textures asynchronously
+        (async () => {
+            try {
+                const assets = await Promise.all([
+                    Asset.loadAsync(require('../assets/images/empty_tile_1.png')),
+                    Asset.loadAsync(require('../assets/images/base_tile.png')),
+                    Asset.loadAsync(require('../assets/images/mine_tile.png')),
+                    Asset.loadAsync(require('../assets/images/crater_tile.png'))
+                ]);
+
+                const textureLoader = new THREE.TextureLoader();
+                const loadTex = (a: Asset) => {
+                    const uri = a.localUri || a.uri;
+                    if (uri) {
+                        const tex = textureLoader.load(uri);
+                        tex.colorSpace = THREE.SRGBColorSpace;
+                        return tex;
+                    }
+                    return null;
+                };
+
+                threeScene.textures.empty = loadTex(assets[0][0]);
+                threeScene.textures.base = loadTex(assets[1][0]);
+                threeScene.textures.mine = loadTex(assets[2][0]);
+                threeScene.textures.crater = loadTex(assets[3][0]);
+
+                if (threeScene.textures.empty) {
+                    const tex = threeScene.textures.empty;
+                    tex.wrapS = THREE.RepeatWrapping;
+                    tex.wrapT = THREE.RepeatWrapping;
+                    tex.repeat.set(gridW, gridH);
+                    groundMat.map = tex;
+                    groundMat.color = new THREE.Color('#ffffff');
+                    groundMat.needsUpdate = true;
+                }
+
+                // Force a rebuild to apply textures to cell meshes
+                forceUpdate();
+            } catch (e) {
+                console.warn('Failed to load textures', e);
+            }
+        })();
 
         rebuildGrid(threeScene);
 
