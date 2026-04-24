@@ -194,7 +194,7 @@ export default function ThreeMapRenderer({
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.5;
+        renderer.toneMappingExposure = 2.5;
 
         // Scene
         const scene = new THREE.Scene();
@@ -208,10 +208,10 @@ export default function ThreeMapRenderer({
         camera.lookAt(0, 0, 0);
 
         // Lights
-        const ambient = new THREE.AmbientLight('#ffeedd', 0.8); // Warm, bright ambient
+        const ambient = new THREE.AmbientLight('#ffffff', 2.0); // Very bright ambient
         scene.add(ambient);
 
-        const dirLight = new THREE.DirectionalLight('#ffddaa', 2.5); // Very bright, warm sun
+        const dirLight = new THREE.DirectionalLight('#ffddaa', 5.0); // Extremely bright sun
         dirLight.position.set(20, 30, 10);
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.width = 1024;
